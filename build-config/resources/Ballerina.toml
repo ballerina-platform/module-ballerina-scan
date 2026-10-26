@@ -1,0 +1,9 @@
+[package]
+org = "ballerina"
+name = "scan"
+version = "@toml.version@"
+authors = ["Ballerina"]
+keywords = ["scan", "static code analysis", "suppression", "Type/Library", "Name/Scan"]
+repository = "https://github.com/ballerina-platform/module-ballerina-scan"
+license = ["Apache-2.0"]
+distribution = "2201.12.0"
