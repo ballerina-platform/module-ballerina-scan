@@ -33,5 +33,8 @@ public function main() {
     int f = 6;
     @scan:Suppress {rules: [string `ballerina:1`], reason: "Template that is not a constant"}
     int g = 7;
-    _ = a + b + c + d + e + f + g;
+    @scan:Suppress {rules: ["ballerina:1"], reason: "First"}
+    @scan:Suppress {rules: ["ballerina:1", "ballerina:2"], reason: "Rule already suppressed above"}
+    int h = 8;
+    _ = a + b + c + d + e + f + g + h;
 }

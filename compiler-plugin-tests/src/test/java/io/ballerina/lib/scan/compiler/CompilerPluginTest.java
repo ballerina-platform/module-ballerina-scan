@@ -65,6 +65,7 @@ public class CompilerPluginTest {
                 "ERROR main.bal:30 empty rule list; omit 'rules' to suppress every rule",
                 "ERROR main.bal:32 " + INVALID_RULE_FORMAT.formatted("http:1"),
                 "WARNING main.bal:34 cannot verify rule 'string `ballerina:1`': use a string literal or a constant",
+                "WARNING main.bal:37 rule 'ballerina:1' is already suppressed on this construct",
                 "ERROR tests/main_test.bal:19 " + INVALID_RULE_FORMAT.formatted("http:1")));
     }
 

@@ -35,6 +35,8 @@ enum DiagnosticCode {
             DiagnosticSeverity.WARNING),
     EMPTY_RULE_LIST("SCAN_SUPPRESS_107", "empty rule list; omit ''rules'' to suppress every rule",
             DiagnosticSeverity.ERROR),
+    RULE_ALREADY_SUPPRESSED("SCAN_SUPPRESS_108", "rule ''{0}'' is already suppressed on this construct",
+            DiagnosticSeverity.WARNING),
     MISSING_REASON("SCAN_SUPPRESS_HINT_101", "a suppression reason can be added", DiagnosticSeverity.INTERNAL);
 
     private final String code;

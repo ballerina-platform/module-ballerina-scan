@@ -40,18 +40,20 @@ import io.ballerina.projects.plugins.CompilationAnalysisContext;
 import io.ballerina.tools.diagnostics.DiagnosticFactory;
 import io.ballerina.tools.diagnostics.DiagnosticInfo;
 
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 /**
- * Checks the form of each {@code @scan:Suppress} annotation: that every rule ID is well formed and listed once, and
- * that the reason is not blank. Whether a rule exists is checked by {@code bal scan}, which knows the rules of the
- * scan tool and analyzers it runs. An annotation without a reason gets an internal hint for
- * {@link AddReasonCodeAction}.
+ * Checks the form of each {@code @scan:Suppress} annotation: that every rule ID is well formed and listed once, also
+ * across the annotations of a construct, and that the reason is not blank. Whether a rule exists is checked by
+ * {@code bal scan}, which knows the rules of the scan tool and analyzers it runs. An annotation without a reason gets
+ * an internal hint for {@link AddReasonCodeAction}.
  *
  * @since 1.0.0
  */
@@ -82,11 +84,16 @@ class SuppressAnnotationValidator implements AnalysisTask<CompilationAnalysisCon
         if (!(root instanceof ModulePartNode modulePart)) {
             return;
         }
+        Map<String, Set<String>> rulesByConstruct = new HashMap<>();
         modulePart.accept(new NodeVisitor() {
             @Override
             public void visit(AnnotationNode annotation) {
                 if (isSuppressAnnotation(semanticModel, annotation)) {
-                    validateAnnotation(context, semanticModel, annotation);
+                    // The annotations of a construct share its metadata, or the parameter or return type they are on
+                    Node construct = annotation.parent();
+                    Set<String> earlierRules = rulesByConstruct.computeIfAbsent(
+                            construct.kind() + "" + construct.lineRange(), key -> new HashSet<>());
+                    validateAnnotation(context, semanticModel, annotation, earlierRules);
                 }
             }
         });
@@ -102,12 +109,13 @@ class SuppressAnnotationValidator implements AnalysisTask<CompilationAnalysisCon
     }
 
     private static void validateAnnotation(CompilationAnalysisContext context, SemanticModel semanticModel,
-                                           AnnotationNode annotation) {
+                                           AnnotationNode annotation, Set<String> earlierRules) {
         if (annotation.annotValue().isEmpty()) {
             report(context, annotation, DiagnosticCode.MISSING_REASON);
             return;
         }
         boolean hasReason = false;
+        Set<String> ruleIds = new HashSet<>();
         for (MappingFieldNode field : annotation.annotValue().get().fields()) {
             if (!(field instanceof SpecificFieldNode specific)) {
                 continue;
@@ -116,9 +124,9 @@ class SuppressAnnotationValidator implements AnalysisTask<CompilationAnalysisCon
             // A shorthand field such as `{rules}` takes the value of the constant its name refers to
             Node value = specific.valueExpr().map(Node.class::cast).orElse(specific.fieldName());
             if (name.equals(RULES_FIELD) && value instanceof ListConstructorExpressionNode rules) {
-                validateRules(context, semanticModel, rules);
+                validateRules(context, semanticModel, rules, ruleIds, earlierRules);
             } else if (name.equals(RULES_FIELD)) {
-                validateConstantRules(context, semanticModel, value);
+                validateConstantRules(context, semanticModel, value, ruleIds, earlierRules);
             } else if (name.equals(REASON_FIELD)) {
                 hasReason = true;
                 stringValue(semanticModel, value).filter(String::isBlank)
@@ -128,29 +136,30 @@ class SuppressAnnotationValidator implements AnalysisTask<CompilationAnalysisCon
         if (!hasReason) {
             report(context, annotation, DiagnosticCode.MISSING_REASON);
         }
+        earlierRules.addAll(ruleIds);
     }
 
     private static void validateRules(CompilationAnalysisContext context, SemanticModel semanticModel,
-                                      ListConstructorExpressionNode rules) {
+                                      ListConstructorExpressionNode rules, Set<String> seen,
+                                      Set<String> earlierRules) {
         // `[]` compiles against the non-empty tuple type because the first member takes the string filler value
         if (rules.expressions().isEmpty()) {
             report(context, rules, DiagnosticCode.EMPTY_RULE_LIST);
             return;
         }
-        Set<String> seen = new HashSet<>();
         for (Node element : rules.expressions()) {
             Optional<String> ruleId = stringValue(semanticModel, element);
             if (ruleId.isEmpty()) {
                 report(context, element, DiagnosticCode.UNVERIFIABLE_RULE, element.toSourceCode().trim());
                 continue;
             }
-            validateRule(context, element, ruleId.get(), seen);
+            validateRule(context, element, ruleId.get(), seen, earlierRules);
         }
     }
 
     // A reference to a constant list is checked as a whole; every diagnostic points at the reference.
     private static void validateConstantRules(CompilationAnalysisContext context, SemanticModel semanticModel,
-                                              Node rules) {
+                                              Node rules, Set<String> seen, Set<String> earlierRules) {
         Optional<List<String>> ruleIds = constantStrings(semanticModel, rules);
         if (ruleIds.isEmpty()) {
             report(context, rules, DiagnosticCode.UNVERIFIABLE_RULE, rules.toSourceCode().trim());
@@ -160,15 +169,17 @@ class SuppressAnnotationValidator implements AnalysisTask<CompilationAnalysisCon
             report(context, rules, DiagnosticCode.EMPTY_RULE_LIST);
             return;
         }
-        Set<String> seen = new HashSet<>();
-        ruleIds.get().forEach(id -> validateRule(context, rules, id, seen));
+        ruleIds.get().forEach(id -> validateRule(context, rules, id, seen, earlierRules));
     }
 
-    private static void validateRule(CompilationAnalysisContext context, Node node, String id, Set<String> seen) {
+    private static void validateRule(CompilationAnalysisContext context, Node node, String id, Set<String> seen,
+                                     Set<String> earlierRules) {
         if (!seen.add(id)) {
             report(context, node, DiagnosticCode.DUPLICATE_RULE, id);
         } else if (!RULE_ID.matcher(id).matches()) {
             report(context, node, DiagnosticCode.INVALID_RULE_FORMAT, id);
+        } else if (earlierRules.contains(id)) {
+            report(context, node, DiagnosticCode.RULE_ALREADY_SUPPRESSED, id);
         }
     }
 
