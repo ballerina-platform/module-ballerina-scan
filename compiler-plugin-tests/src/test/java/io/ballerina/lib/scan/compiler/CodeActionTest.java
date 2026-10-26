@@ -63,6 +63,16 @@ public class CodeActionTest {
         Assert.assertEquals(applyCodeAction(line, title).split("\\R")[line - 1], expected);
     }
 
+    @Test(description = "test removing a blank reason keeps the comments of the other fields")
+    public void testRemoveBlankReasonKeepsComments() {
+        List<String> first = List.of(applyCodeAction(33, REMOVE_BLANK_REASON).split("\\R"));
+        Assert.assertEquals(first.subList(31, 35), List.of("    @scan:Suppress {",
+                "        // Accepted until the parser is replaced", "        rules: [\"ballerina:1\"]", "    }"));
+        List<String> last = List.of(applyCodeAction(40, REMOVE_BLANK_REASON).split("\\R"));
+        Assert.assertEquals(last.subList(37, 40), List.of("    @scan:Suppress {",
+                "        rules: [\"ballerina:1\"] // Accepted until the parser is replaced", "    }"));
+    }
+
     @Test(description = "test a suppression with a reason gets no code action")
     public void testNoCodeActionWithReason() {
         Assert.assertEquals(codeActions(CompilerPluginTest.loadPackage("valid_suppressions"), 31), List.of());

@@ -21,8 +21,12 @@ package io.ballerina.lib.scan.compiler;
 import io.ballerina.compiler.syntax.tree.AnnotationNode;
 import io.ballerina.compiler.syntax.tree.MappingConstructorExpressionNode;
 import io.ballerina.compiler.syntax.tree.MappingFieldNode;
+import io.ballerina.compiler.syntax.tree.Minutiae;
+import io.ballerina.compiler.syntax.tree.MinutiaeList;
 import io.ballerina.compiler.syntax.tree.SeparatedNodeList;
 import io.ballerina.compiler.syntax.tree.SpecificFieldNode;
+import io.ballerina.compiler.syntax.tree.SyntaxKind;
+import io.ballerina.compiler.syntax.tree.Token;
 import io.ballerina.projects.plugins.codeaction.CodeAction;
 import io.ballerina.projects.plugins.codeaction.CodeActionContext;
 import io.ballerina.projects.plugins.codeaction.CodeActionExecutionContext;
@@ -74,17 +78,31 @@ class RemoveBlankReasonCodeAction implements CodeAction {
 
     private static TextEdit removal(AnnotationNode annotation, SeparatedNodeList<MappingFieldNode> fields, int index) {
         if (fields.size() == 1) {
-            return remove(annotation.annotReference().textRange().endOffset(),
-                    annotation.annotValue().get().textRange().endOffset());
+            return replace(annotation.annotReference().textRange().endOffset(),
+                    annotation.annotValue().get().textRange().endOffset(), "");
         }
+        // Comments around the reason go with it; those of the neighbouring field, on its separator, stay
         if (index > 0) {
-            return remove(fields.get(index - 1).textRange().endOffset(), fields.get(index).textRange().endOffset());
+            Token separator = fields.getSeparator(index - 1);
+            return replace(fields.get(index - 1).textRange().endOffset(), fields.get(index).textRange().endOffset(),
+                    hasComment(separator.trailingMinutiae()) ? separator.trailingMinutiae().toString().stripTrailing()
+                            : "");
         }
-        return remove(fields.get(0).textRange().startOffset(), fields.get(1).textRange().startOffset());
+        return replace(fields.get(0).textRangeWithMinutiae().startOffset(),
+                fields.getSeparator(0).textRangeWithMinutiae().endOffset(), "");
     }
 
-    private static TextEdit remove(int start, int end) {
-        return TextEdit.from(TextRange.from(start, end - start), "");
+    private static boolean hasComment(MinutiaeList minutiae) {
+        for (Minutiae minutia : minutiae) {
+            if (minutia.kind() == SyntaxKind.COMMENT_MINUTIAE) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static TextEdit replace(int start, int end, String text) {
+        return TextEdit.from(TextRange.from(start, end - start), text);
     }
 
     @Override

@@ -36,5 +36,7 @@ public function main() {
     @scan:Suppress {rules: ["ballerina:1"], reason: "First"}
     @scan:Suppress {rules: ["ballerina:1", "ballerina:2"], reason: "Rule already suppressed above"}
     int h = 8;
-    _ = a + b + c + d + e + f + g + h;
+    @scan:Suppress {rules: ["ballerina:1"], reason: "\t"}
+    int i = 9;
+    _ = a + b + c + d + e + f + g + h + i;
 }

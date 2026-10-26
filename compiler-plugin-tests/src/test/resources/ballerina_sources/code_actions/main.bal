@@ -29,5 +29,16 @@ public function main() {
     int e = 5;
     @scan:Suppress {rules: ["ballerina:1"], reason: ""}
     int f = 6;
-    _ = a + b + c + d + e + f;
+    @scan:Suppress {
+        reason: " ",
+        // Accepted until the parser is replaced
+        rules: ["ballerina:1"]
+    }
+    int g = 7;
+    @scan:Suppress {
+        rules: ["ballerina:1"], // Accepted until the parser is replaced
+        reason: ""
+    }
+    int h = 8;
+    _ = a + b + c + d + e + f + g + h;
 }

@@ -43,5 +43,7 @@ public function main() {
     int f = 6;
     @Suppress {rules: ["http:1", "http:1"]}
     int g = 7;
-    _ = a + b + c + d + e + f + g;
+    @scan:Suppress {rules: ["ballerina:\u{31}"], reason: "Escaped rule ID"}
+    int h = 8;
+    _ = a + b + c + d + e + f + g + h;
 }
