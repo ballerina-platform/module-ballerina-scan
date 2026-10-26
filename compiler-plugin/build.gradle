@@ -33,11 +33,6 @@ dependencies {
     implementation group: 'org.ballerinalang', name: 'ballerina-parser', version: "${ballerinaLangVersion}"
 }
 
-// The plugin is loaded by every distribution from ballerinaLangVersion on, the oldest of which runs on Java 21
-tasks.withType(JavaCompile).configureEach {
-    options.release = 21
-}
-
 checkstyle {
     toolVersion "${project.puppycrawlCheckstyleVersion}"
     configFile rootProject.file("build-config/checkstyle/build/checkstyle.xml")
