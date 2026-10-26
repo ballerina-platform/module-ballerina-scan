@@ -84,9 +84,13 @@ class RemoveBlankReasonCodeAction implements CodeAction {
         // Comments around the reason go with it; those of the neighbouring field, on its separator, stay
         if (index > 0) {
             Token separator = fields.getSeparator(index - 1);
-            return replace(fields.get(index - 1).textRange().endOffset(), fields.get(index).textRange().endOffset(),
-                    hasComment(separator.trailingMinutiae()) ? separator.trailingMinutiae().toString().stripTrailing()
-                            : "");
+            int start = fields.get(index - 1).textRange().endOffset();
+            if (!hasComment(separator.trailingMinutiae())) {
+                return replace(start, fields.get(index).textRange().endOffset(), "");
+            }
+            // The kept comment ends with its line break, which replaces the one after the reason
+            return replace(start, fields.get(index).textRangeWithMinutiae().endOffset(),
+                    separator.trailingMinutiae().toString());
         }
         return replace(fields.get(0).textRangeWithMinutiae().startOffset(),
                 fields.getSeparator(0).textRangeWithMinutiae().endOffset(), "");

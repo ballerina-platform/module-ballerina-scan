@@ -71,6 +71,10 @@ public class CodeActionTest {
         List<String> last = List.of(applyCodeAction(40, REMOVE_BLANK_REASON).split("\\R"));
         Assert.assertEquals(last.subList(37, 40), List.of("    @scan:Suppress {",
                 "        rules: [\"ballerina:1\"] // Accepted until the parser is replaced", "    }"));
+        List<String> closed = List.of(applyCodeAction(44, REMOVE_BLANK_REASON).split("\\R"));
+        Assert.assertEquals(closed.subList(42, 45), List.of(
+                "    @scan:Suppress {rules: [\"ballerina:1\"] // Accepted until the parser is replaced", "}",
+                "    int i = 9;"));
     }
 
     @Test(description = "test a suppression with a reason gets no code action")

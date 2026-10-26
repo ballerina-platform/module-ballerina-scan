@@ -40,5 +40,8 @@ public function main() {
         reason: ""
     }
     int h = 8;
-    _ = a + b + c + d + e + f + g + h;
+    @scan:Suppress {rules: ["ballerina:1"], // Accepted until the parser is replaced
+        reason: ""}
+    int i = 9;
+    _ = a + b + c + d + e + f + g + h + i;
 }
