@@ -24,6 +24,7 @@ import io.ballerina.projects.directory.BuildProject;
 import io.ballerina.projects.environment.Environment;
 import io.ballerina.projects.environment.EnvironmentBuilder;
 import io.ballerina.tools.diagnostics.Diagnostic;
+import io.ballerina.tools.diagnostics.DiagnosticSeverity;
 import io.ballerina.tools.text.LineRange;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -67,10 +68,23 @@ public class CompilerPluginTest {
                 "ERROR tests/main_test.bal:19 " + INVALID_RULE_FORMAT.formatted("http:1")));
     }
 
+    @Test(description = "test a suppression without a reason gets an internal hint")
+    public void testMissingReasonHints() {
+        List<String> hints = loadPackage("valid_suppressions").getCompilation().diagnosticResult().diagnostics()
+                .stream()
+                .filter(diagnostic -> diagnostic.diagnosticInfo().severity() == DiagnosticSeverity.INTERNAL)
+                .map(CompilerPluginTest::describe)
+                .sorted()
+                .toList();
+        Assert.assertEquals(hints, List.of("INTERNAL main.bal:29 a suppression reason can be added",
+                "INTERNAL main.bal:37 a suppression reason can be added"));
+    }
+
     private static List<String> scanDiagnostics(String packageName) {
         Package currentPackage = loadPackage(packageName);
         return currentPackage.getCompilation().diagnosticResult().diagnostics().stream()
                 .filter(diagnostic -> diagnostic.diagnosticInfo().code().startsWith("SCAN_SUPPRESS_"))
+                .filter(diagnostic -> diagnostic.diagnosticInfo().severity() != DiagnosticSeverity.INTERNAL)
                 .sorted(Comparator.comparing((Diagnostic diagnostic) -> diagnostic.location().lineRange().fileName())
                         .thenComparing(diagnostic -> diagnostic.location().lineRange().startLine().line())
                         .thenComparing(diagnostic -> diagnostic.location().lineRange().startLine().offset()))
@@ -84,7 +98,7 @@ public class CompilerPluginTest {
                 + (lineRange.startLine().line() + 1) + " " + diagnostic.message();
     }
 
-    private static Package loadPackage(String packageName) {
+    static Package loadPackage(String packageName) {
         Environment environment = EnvironmentBuilder.getBuilder().setBallerinaHome(DISTRIBUTION_PATH).build();
         ProjectEnvironmentBuilder projectEnvironmentBuilder = ProjectEnvironmentBuilder.getBuilder(environment);
         return BuildProject.load(projectEnvironmentBuilder, RESOURCE_DIRECTORY.resolve(packageName)).currentPackage();

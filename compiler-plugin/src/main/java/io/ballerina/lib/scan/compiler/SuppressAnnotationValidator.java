@@ -50,7 +50,8 @@ import java.util.stream.Stream;
 /**
  * Checks the form of each {@code @scan:Suppress} annotation: that every rule ID is well formed and listed once, and
  * that the reason is not blank. Whether a rule exists is checked by {@code bal scan}, which knows the rules of the
- * scan tool and analyzers it runs.
+ * scan tool and analyzers it runs. An annotation without a reason gets an internal hint for
+ * {@link AddReasonCodeAction}.
  *
  * @since 1.0.0
  */
@@ -60,7 +61,7 @@ class SuppressAnnotationValidator implements AnalysisTask<CompilationAnalysisCon
     private static final String SCAN_MODULE = "scan";
     private static final String ANNOTATION_NAME = "Suppress";
     private static final String RULES_FIELD = "rules";
-    private static final String REASON_FIELD = "reason";
+    static final String REASON_FIELD = "reason";
     private static final Pattern RULE_ID = Pattern.compile("^(ballerina|[A-Za-z0-9_.]+/[A-Za-z0-9_.]+):[1-9][0-9]*$");
 
     @Override
@@ -103,8 +104,10 @@ class SuppressAnnotationValidator implements AnalysisTask<CompilationAnalysisCon
     private static void validateAnnotation(CompilationAnalysisContext context, SemanticModel semanticModel,
                                            AnnotationNode annotation) {
         if (annotation.annotValue().isEmpty()) {
+            report(context, annotation, DiagnosticCode.MISSING_REASON);
             return;
         }
+        boolean hasReason = false;
         for (MappingFieldNode field : annotation.annotValue().get().fields()) {
             if (!(field instanceof SpecificFieldNode specific)) {
                 continue;
@@ -117,9 +120,13 @@ class SuppressAnnotationValidator implements AnalysisTask<CompilationAnalysisCon
             } else if (name.equals(RULES_FIELD)) {
                 validateConstantRules(context, semanticModel, value);
             } else if (name.equals(REASON_FIELD)) {
+                hasReason = true;
                 stringValue(semanticModel, value).filter(String::isBlank)
                         .ifPresent(reason -> report(context, value, DiagnosticCode.BLANK_REASON));
             }
+        }
+        if (!hasReason) {
+            report(context, annotation, DiagnosticCode.MISSING_REASON);
         }
     }
 
@@ -166,7 +173,7 @@ class SuppressAnnotationValidator implements AnalysisTask<CompilationAnalysisCon
     }
 
     // `rules`, `'rules` and `"rules"` all name the same field
-    private static String fieldName(SpecificFieldNode field) {
+    static String fieldName(SpecificFieldNode field) {
         Node name = field.fieldName();
         if (name.kind() == SyntaxKind.STRING_LITERAL) {
             return literalText((BasicLiteralNode) name);

@@ -34,7 +34,8 @@ enum DiagnosticCode {
     UNVERIFIABLE_RULE("SCAN_SUPPRESS_106", "cannot verify rule ''{0}'': use a string literal or a constant",
             DiagnosticSeverity.WARNING),
     EMPTY_RULE_LIST("SCAN_SUPPRESS_107", "empty rule list; omit ''rules'' to suppress every rule",
-            DiagnosticSeverity.ERROR);
+            DiagnosticSeverity.ERROR),
+    MISSING_REASON("SCAN_SUPPRESS_HINT_101", "a suppression reason can be added", DiagnosticSeverity.INTERNAL);
 
     private final String code;
     private final String messageFormat;
