@@ -45,6 +45,10 @@ public class CompilerPluginTest {
 
     @Test(description = "test well-formed suppressions and annotations of other modules are not reported")
     public void testValidSuppressions() {
+        // Any error, such as an unresolved ballerina/scan import, would also leave the plugin nothing to report
+        List<String> errors = loadPackage("valid_suppressions").getCompilation().diagnosticResult().errors().stream()
+                .map(Diagnostic::toString).toList();
+        Assert.assertEquals(errors, List.of());
         Assert.assertEquals(scanDiagnostics("valid_suppressions"), List.of());
     }
 

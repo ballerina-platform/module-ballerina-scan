@@ -1,2 +1,4 @@
 # Ensure all Java files use LF.
 *.java eol=lf
+# Windows batch files need CRLF line endings.
+*.bat text eol=crlf
