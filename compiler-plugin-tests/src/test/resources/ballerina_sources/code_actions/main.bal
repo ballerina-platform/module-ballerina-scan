@@ -75,7 +75,13 @@ public function main() {
     int o = 15;
     @scan:Suppress {rules: DUPLICATED_RULES, reason: "Fixed by the parser rewrite"}
     int p = 16;
-    _ = a + b + c + d + e + f + g + h + i + j + k + l + m + n + o + p;
+    @scan:Suppress {rules: ["ballerina:1", // Accepted until the parser is replaced
+            "ballerina:1", "ballerina:2"], reason: "Fixed by the parser rewrite"}
+    int q = 17;
+    @scan:Suppress {rules: ["ballerina:1", "ballerina:1",
+            "ballerina:2"], reason: "Fixed by the parser rewrite"}
+    int r = 18;
+    _ = a + b + c + d + e + f + g + h + i + j + k + l + m + n + o + p + q + r;
 }
 
 const string[] DUPLICATED_RULES = ["ballerina:1", "ballerina:1"];

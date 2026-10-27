@@ -97,6 +97,13 @@ public class CodeActionTest {
         List<String> closed = List.of(applyCodeAction(74, REMOVE_DUPLICATE_RULE).split("\\R"));
         Assert.assertEquals(closed.subList(72, 74), List.of(
                 "    @scan:Suppress {rules: [\"ballerina:1\"]" + DUPLICATE_RULE_REASON, "    int o = 15;"));
+        List<String> commented = List.of(applyCodeAction(79, REMOVE_DUPLICATE_RULE).split("\\R"));
+        Assert.assertEquals(commented.subList(77, 80), List.of(
+                "    @scan:Suppress {rules: [\"ballerina:1\", // Accepted until the parser is replaced",
+                "            \"ballerina:2\"]" + DUPLICATE_RULE_REASON, "    int q = 17;"));
+        List<String> lineEnd = List.of(applyCodeAction(81, REMOVE_DUPLICATE_RULE).split("\\R"));
+        Assert.assertEquals(lineEnd.subList(80, 83), List.of("    @scan:Suppress {rules: [\"ballerina:1\",",
+                "            \"ballerina:2\"]" + DUPLICATE_RULE_REASON, "    int r = 18;"));
     }
 
     @Test(description = "test a duplicate rule from a constant gets no code action")

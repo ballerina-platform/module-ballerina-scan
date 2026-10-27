@@ -96,7 +96,13 @@ class RemoveDuplicateRuleCodeAction implements CodeAction {
                 return Optional.of(replace(member.textRangeWithMinutiae().startOffset(),
                         next.textRangeWithMinutiae().endOffset(), ""));
             }
-            return Optional.of(replace(previous.textRange().endOffset(), member.textRange().endOffset(), ""));
+            // A rule ending its line goes with the separator before it, so the line keeps its break
+            if (hasLineBreak(next.trailingMinutiae())) {
+                return Optional.of(replace(previous.textRange().endOffset(), member.textRange().endOffset(), ""));
+            }
+            // Otherwise it goes with the separator after it, so a comment on the separator before it stays
+            return Optional.of(replace(member.textRange().startOffset(), next.textRangeWithMinutiae().endOffset(),
+                    ""));
         }
         // The last rule's comments go with it, while a comment on the separator belongs to the rule before it
         String separatorTrivia = separator.trailingMinutiae().toString();
