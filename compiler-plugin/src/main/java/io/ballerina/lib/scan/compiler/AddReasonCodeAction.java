@@ -41,7 +41,7 @@ import java.util.Optional;
  */
 class AddReasonCodeAction implements CodeAction {
 
-    private static final String REASON = SuppressAnnotationValidator.REASON_FIELD + ": \"\"";
+    private static final String REASON = SuppressAttachment.REASON_FIELD + ": \"\"";
 
     @Override
     public List<String> supportedDiagnosticCodes() {

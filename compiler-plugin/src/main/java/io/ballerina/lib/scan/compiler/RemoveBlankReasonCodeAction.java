@@ -68,32 +68,57 @@ class RemoveBlankReasonCodeAction implements CodeAction {
         MappingConstructorExpressionNode value = annotation.annotValue().get();
         SeparatedNodeList<MappingFieldNode> fields = value.fields();
         for (int i = 0; i < fields.size(); i++) {
-            if (fields.get(i) instanceof SpecificFieldNode field && SuppressAnnotationValidator.fieldName(field)
-                    .equals(SuppressAnnotationValidator.REASON_FIELD)) {
-                return Optional.of(removal(annotation, fields, i));
+            if (fields.get(i) instanceof SpecificFieldNode field
+                    && SuppressAttachment.fieldName(field).equals(SuppressAttachment.REASON_FIELD)) {
+                return Optional.of(removal(annotation, value, i));
             }
         }
         return Optional.empty();
     }
 
-    private static TextEdit removal(AnnotationNode annotation, SeparatedNodeList<MappingFieldNode> fields, int index) {
+    private static TextEdit removal(AnnotationNode annotation, MappingConstructorExpressionNode value, int index) {
+        SeparatedNodeList<MappingFieldNode> fields = value.fields();
         if (fields.size() == 1) {
-            return replace(annotation.annotReference().textRange().endOffset(),
-                    annotation.annotValue().get().textRange().endOffset(), "");
+            return replace(annotation.annotReference().textRange().endOffset(), value.textRange().endOffset(), "");
         }
-        // Comments around the reason go with it; those of the neighbouring field, on its separator, stay
-        if (index > 0) {
-            Token separator = fields.getSeparator(index - 1);
-            int start = fields.get(index - 1).textRange().endOffset();
-            if (!hasComment(separator.trailingMinutiae())) {
-                return replace(start, fields.get(index).textRange().endOffset(), "");
+        MappingFieldNode field = fields.get(index);
+        if (index == 0) {
+            Token separator = fields.getSeparator(0);
+            MappingFieldNode next = fields.get(1);
+            int end = separator.textRangeWithMinutiae().endOffset();
+            // A reason on the brace's line pulls the next field up to it, unless comments keep that field apart
+            if (!hasLineBreak(value.openBrace().trailingMinutiae()) && hasLineBreak(separator.trailingMinutiae())
+                    && !hasComment(next.leadingMinutiae())) {
+                end = next.textRange().startOffset();
             }
-            // The kept comment ends with its line break, which replaces the one after the reason
-            return replace(start, fields.get(index).textRangeWithMinutiae().endOffset(),
-                    separator.trailingMinutiae().toString());
+            return replace(field.textRangeWithMinutiae().startOffset(), end, "");
         }
-        return replace(fields.get(0).textRangeWithMinutiae().startOffset(),
-                fields.getSeparator(0).textRangeWithMinutiae().endOffset(), "");
+        // The reason's comments go with it, while a comment on the separator belongs to the field before it
+        Token separator = fields.getSeparator(index - 1);
+        String separatorTrivia = separator.trailingMinutiae().toString();
+        String fieldTrivia = field.trailingMinutiae().toString();
+        String lineBreak = separatorTrivia.contains("\r\n") || fieldTrivia.contains("\r\n") ? "\r\n" : "\n";
+        String kept = hasComment(separator.trailingMinutiae()) ? separatorTrivia
+                : hasLineBreak(separator.trailingMinutiae()) || hasLineBreak(field.trailingMinutiae()) ? lineBreak : "";
+        // What followed the reason on its line, such as the closing brace, keeps the reason's indentation
+        if (kept.endsWith("\n") && !hasLineBreak(field.trailingMinutiae())) {
+            kept += indentation(field.leadingMinutiae().toString());
+        }
+        return replace(fields.get(index - 1).textRange().endOffset(), field.textRangeWithMinutiae().endOffset(), kept);
+    }
+
+    private static String indentation(String leadingTrivia) {
+        String lastLine = leadingTrivia.substring(leadingTrivia.lastIndexOf('\n') + 1);
+        return lastLine.isBlank() ? lastLine : "";
+    }
+
+    private static boolean hasLineBreak(MinutiaeList minutiae) {
+        for (Minutiae minutia : minutiae) {
+            if (minutia.kind() == SyntaxKind.END_OF_LINE_MINUTIAE) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static boolean hasComment(MinutiaeList minutiae) {

@@ -3,10 +3,14 @@
 This package provides the `@scan:Suppress` annotation, which accepts individual findings of the `bal scan` static code analysis tool at the construct that contains them.
 
 ```ballerina
+import ballerina/crypto;
 import ballerina/scan;
 
-@scan:Suppress {rules: ["ballerina/crypto:2"], reason: "Legacy hash kept for the migration window, SEC-1042"}
-string hashed = check crypto:hashBcrypt(password, 4);
+function hashPassword(string password) returns string|error {
+    @scan:Suppress {rules: ["ballerina/crypto:2"], reason: "Legacy hash kept for the migration window, SEC-1042"}
+    string hashed = check crypto:hashBcrypt(password, 4);
+    return hashed;
+}
 ```
 
 A suppressed finding is not removed from the scan results. It is reported with its justification, so that every accepted risk remains visible and reviewable.
@@ -24,7 +28,7 @@ A finding inside a statement that is not a declaration can be suppressed by turn
 
 ### Rule ID validation
 
-The package's compiler plugin checks the form of each rule ID during `bal build` and in the editor: a malformed ID such as `http:1` or an empty rule list is a compile error, and a duplicate rule, within one annotation or across the annotations of a construct, or a blank reason is a warning. In the editor, code actions add a reason to a suppression that has none and remove a blank one. Whether a rule exists is checked when `bal scan` runs, against the core rules of the scan tool in use and the rules of every analyzer it engages; a rule that does not exist fails the scan, and a rule of an analyzer the scan does not engage is reported as a warning, since it cannot be verified.
+The package's compiler plugin checks the form of each rule ID during `bal build` and in the editor: a malformed ID such as `http:1` or an empty rule list is a compile error, and a duplicate rule, within one annotation or across the annotations of a construct, a second annotation without `rules` on a construct, or a blank reason is a warning. Rule IDs and reasons are checked as the compiler evaluates them, so constants, string templates and escapes are resolved first. In the editor, code actions add a reason to a suppression that has none and remove a blank one. Whether a rule exists is checked when `bal scan` runs, against the core rules of the scan tool in use and the rules of every analyzer it engages; a rule that does not exist fails the scan, and a rule of an analyzer the scan does not engage is reported as a warning, since it cannot be verified.
 
 ### Configuration
 

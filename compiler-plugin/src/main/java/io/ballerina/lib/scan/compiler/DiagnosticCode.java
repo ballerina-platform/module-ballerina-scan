@@ -31,11 +31,11 @@ enum DiagnosticCode {
     BLANK_REASON("SCAN_SUPPRESS_104", "blank suppression reason; it is treated as absent",
             DiagnosticSeverity.WARNING),
     DUPLICATE_RULE("SCAN_SUPPRESS_105", "rule ''{0}'' is listed more than once", DiagnosticSeverity.WARNING),
-    UNVERIFIABLE_RULE("SCAN_SUPPRESS_106", "cannot verify rule ''{0}'': use a string literal or a constant",
-            DiagnosticSeverity.WARNING),
     EMPTY_RULE_LIST("SCAN_SUPPRESS_107", "empty rule list; omit ''rules'' to suppress every rule",
             DiagnosticSeverity.ERROR),
     RULE_ALREADY_SUPPRESSED("SCAN_SUPPRESS_108", "rule ''{0}'' is already suppressed on this construct",
+            DiagnosticSeverity.WARNING),
+    BLANKET_ALREADY_SUPPRESSED("SCAN_SUPPRESS_109", "every rule is already suppressed on this construct",
             DiagnosticSeverity.WARNING),
     MISSING_REASON("SCAN_SUPPRESS_HINT_101", "a suppression reason can be added", DiagnosticSeverity.INTERNAL);
 

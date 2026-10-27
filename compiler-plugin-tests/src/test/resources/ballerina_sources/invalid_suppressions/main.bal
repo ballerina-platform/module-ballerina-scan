@@ -31,12 +31,40 @@ public function main() {
     int e = 5;
     @scan:Suppress {rules: RULE_LIST, reason: "Constant list with a malformed rule"}
     int f = 6;
-    @scan:Suppress {rules: [string `ballerina:1`], reason: "Template that is not a constant"}
+    @scan:Suppress {
+        // SEC-1042
+        rules: ["http:1"],
+        reason: "Commented fields"
+    }
     int g = 7;
     @scan:Suppress {rules: ["ballerina:1"], reason: "First"}
     @scan:Suppress {rules: ["ballerina:1", "ballerina:2"], reason: "Rule already suppressed above"}
     int h = 8;
     @scan:Suppress {rules: ["ballerina:1"], reason: "\t"}
     int i = 9;
-    _ = a + b + c + d + e + f + g + h + i;
+    @scan:Suppress {reason: "First"}
+    @scan:Suppress {reason: "Every rule again"}
+    int j = 10;
+    _ = a + b + c + d + e + f + g + h + i + j;
+}
+
+function workers() {
+    @scan:Suppress {rules: ["http:1"], reason: "Worker"}
+    worker W {
+    }
+}
+
+type Limit record {|
+    int max;
+|};
+
+annotation Limit Limited on function;
+
+@Limited {
+    max: let
+        @scan:Suppress {rules: ["http:1"], reason: "Nested in another annotation's value"}
+        int base = 10
+    in base * 2
+}
+function limited() {
 }

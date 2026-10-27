@@ -45,5 +45,12 @@ public function main() {
     int g = 7;
     @scan:Suppress {rules: ["ballerina:\u{31}"], reason: "Escaped rule ID"}
     int h = 8;
-    _ = a + b + c + d + e + f + g + h;
+    @scan:Suppress {rules: [string `ballerina:1`], reason: "Template of a constant"}
+    int i = 9;
+    @scan:Suppress {
+        // SEC-1042
+        reason: "Commented reason"
+    }
+    int j = 10;
+    _ = a + b + c + d + e + f + g + h + i + j;
 }

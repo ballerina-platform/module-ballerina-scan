@@ -64,9 +64,12 @@ public class CompilerPluginTest {
                 "WARNING main.bal:28 blank suppression reason; it is treated as absent",
                 "ERROR main.bal:30 empty rule list; omit 'rules' to suppress every rule",
                 "ERROR main.bal:32 " + INVALID_RULE_FORMAT.formatted("http:1"),
-                "WARNING main.bal:34 cannot verify rule 'string `ballerina:1`': use a string literal or a constant",
-                "WARNING main.bal:37 rule 'ballerina:1' is already suppressed on this construct",
-                "WARNING main.bal:39 blank suppression reason; it is treated as absent",
+                "ERROR main.bal:36 " + INVALID_RULE_FORMAT.formatted("http:1"),
+                "WARNING main.bal:41 rule 'ballerina:1' is already suppressed on this construct",
+                "WARNING main.bal:43 blank suppression reason; it is treated as absent",
+                "WARNING main.bal:46 every rule is already suppressed on this construct",
+                "ERROR main.bal:52 " + INVALID_RULE_FORMAT.formatted("http:1"),
+                "ERROR main.bal:65 " + INVALID_RULE_FORMAT.formatted("http:1"),
                 "ERROR tests/main_test.bal:19 " + INVALID_RULE_FORMAT.formatted("http:1")));
     }
 

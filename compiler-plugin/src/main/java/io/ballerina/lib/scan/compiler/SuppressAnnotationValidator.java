@@ -19,18 +19,11 @@
 package io.ballerina.lib.scan.compiler;
 
 import io.ballerina.compiler.api.SemanticModel;
-import io.ballerina.compiler.api.symbols.AnnotationSymbol;
-import io.ballerina.compiler.api.symbols.ConstantSymbol;
-import io.ballerina.compiler.api.values.ConstantValue;
 import io.ballerina.compiler.syntax.tree.AnnotationNode;
-import io.ballerina.compiler.syntax.tree.BasicLiteralNode;
 import io.ballerina.compiler.syntax.tree.ListConstructorExpressionNode;
-import io.ballerina.compiler.syntax.tree.MappingFieldNode;
 import io.ballerina.compiler.syntax.tree.ModulePartNode;
 import io.ballerina.compiler.syntax.tree.Node;
 import io.ballerina.compiler.syntax.tree.NodeVisitor;
-import io.ballerina.compiler.syntax.tree.SpecificFieldNode;
-import io.ballerina.compiler.syntax.tree.SyntaxKind;
 import io.ballerina.projects.Document;
 import io.ballerina.projects.Module;
 import io.ballerina.projects.ModuleId;
@@ -40,18 +33,21 @@ import io.ballerina.projects.plugins.CompilationAnalysisContext;
 import io.ballerina.tools.diagnostics.DiagnosticFactory;
 import io.ballerina.tools.diagnostics.DiagnosticInfo;
 
-import java.util.HashMap;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
+import static io.ballerina.lib.scan.compiler.SuppressAttachment.REASON_FIELD;
+import static io.ballerina.lib.scan.compiler.SuppressAttachment.RULES_FIELD;
+
 /**
  * Checks the form of each {@code @scan:Suppress} annotation: that every rule ID is well formed and listed once, also
- * across the annotations of a construct, and that the reason is not blank. Whether a rule exists is checked by
+ * across the annotations of a construct, and that the reason is not blank. The values are the ones the compiler
+ * resolved, so constants, string templates and escapes count as written. Whether a rule exists is checked by
  * {@code bal scan}, which knows the rules of the scan tool and analyzers it runs. An annotation without a reason gets
  * an internal hint for {@link AddReasonCodeAction}.
  *
@@ -59,11 +55,6 @@ import java.util.stream.Stream;
  */
 class SuppressAnnotationValidator implements AnalysisTask<CompilationAnalysisContext> {
 
-    private static final String SCAN_ORG = "ballerina";
-    private static final String SCAN_MODULE = "scan";
-    private static final String ANNOTATION_NAME = "Suppress";
-    private static final String RULES_FIELD = "rules";
-    static final String REASON_FIELD = "reason";
     private static final Pattern RULE_ID = Pattern.compile("^(ballerina|[A-Za-z0-9_.]+/[A-Za-z0-9_.]+):[1-9][0-9]*$");
 
     @Override
@@ -84,188 +75,71 @@ class SuppressAnnotationValidator implements AnalysisTask<CompilationAnalysisCon
         if (!(root instanceof ModulePartNode modulePart)) {
             return;
         }
-        Map<String, Set<String>> rulesByConstruct = new HashMap<>();
+        // The annotations of a construct share its metadata, or the parameter, return type or body they are on
+        Map<Node, ConstructSuppressions> byConstruct = new IdentityHashMap<>();
         modulePart.accept(new NodeVisitor() {
             @Override
             public void visit(AnnotationNode annotation) {
-                if (isSuppressAnnotation(semanticModel, annotation)) {
-                    // The annotations of a construct share its metadata, or the parameter or return type they are on
-                    Node construct = annotation.parent();
-                    Set<String> earlierRules = rulesByConstruct.computeIfAbsent(
-                            construct.kind() + "" + construct.lineRange(), key -> new HashSet<>());
-                    validateAnnotation(context, semanticModel, annotation, earlierRules);
-                }
+                SuppressAttachment.resolve(semanticModel, annotation).ifPresent(suppression ->
+                        validateAnnotation(context, annotation, suppression,
+                                byConstruct.computeIfAbsent(annotation.parent(), key -> new ConstructSuppressions())));
+                // A construct inside another annotation's value can carry suppressions of its own
+                annotation.annotValue().ifPresent(value -> value.accept(this));
             }
         });
     }
 
-    private static boolean isSuppressAnnotation(SemanticModel semanticModel, AnnotationNode annotation) {
-        if (!(semanticModel.symbol(annotation).orElse(null) instanceof AnnotationSymbol symbol)) {
-            return false;
+    private static void validateAnnotation(CompilationAnalysisContext context, AnnotationNode annotation,
+                                           SuppressAttachment suppression, ConstructSuppressions construct) {
+        if (suppression.rules().isEmpty()) {
+            if (construct.blanket) {
+                report(context, annotation, DiagnosticCode.BLANKET_ALREADY_SUPPRESSED);
+            }
+            construct.blanket = true;
+        } else {
+            Node rules = SuppressAttachment.fieldValue(annotation, RULES_FIELD).orElse(annotation);
+            validateRules(context, suppression.rules().get(), rules, construct.rules);
         }
-        return symbol.getName().filter(ANNOTATION_NAME::equals).isPresent()
-                && symbol.getModule().map(module -> module.id().orgName().equals(SCAN_ORG)
-                && module.id().moduleName().equals(SCAN_MODULE)).orElse(false);
+        if (suppression.reason().isEmpty()) {
+            report(context, annotation, DiagnosticCode.MISSING_REASON);
+        } else if (suppression.reason().get().isBlank()) {
+            report(context, SuppressAttachment.fieldValue(annotation, REASON_FIELD).orElse(annotation),
+                    DiagnosticCode.BLANK_REASON);
+        }
     }
 
-    private static void validateAnnotation(CompilationAnalysisContext context, SemanticModel semanticModel,
-                                           AnnotationNode annotation, Set<String> earlierRules) {
-        if (annotation.annotValue().isEmpty()) {
-            report(context, annotation, DiagnosticCode.MISSING_REASON);
-            return;
-        }
-        boolean hasReason = false;
-        Set<String> ruleIds = new HashSet<>();
-        for (MappingFieldNode field : annotation.annotValue().get().fields()) {
-            if (!(field instanceof SpecificFieldNode specific)) {
-                continue;
-            }
-            String name = fieldName(specific);
-            // A shorthand field such as `{rules}` takes the value of the constant its name refers to
-            Node value = specific.valueExpr().map(Node.class::cast).orElse(specific.fieldName());
-            if (name.equals(RULES_FIELD) && value instanceof ListConstructorExpressionNode rules) {
-                validateRules(context, semanticModel, rules, ruleIds, earlierRules);
-            } else if (name.equals(RULES_FIELD)) {
-                validateConstantRules(context, semanticModel, value, ruleIds, earlierRules);
-            } else if (name.equals(REASON_FIELD)) {
-                hasReason = true;
-                stringValue(semanticModel, value).filter(String::isBlank)
-                        .ifPresent(reason -> report(context, value, DiagnosticCode.BLANK_REASON));
-            }
-        }
-        if (!hasReason) {
-            report(context, annotation, DiagnosticCode.MISSING_REASON);
-        }
-        earlierRules.addAll(ruleIds);
-    }
-
-    private static void validateRules(CompilationAnalysisContext context, SemanticModel semanticModel,
-                                      ListConstructorExpressionNode rules, Set<String> seen,
+    private static void validateRules(CompilationAnalysisContext context, List<String> ruleIds, Node rules,
                                       Set<String> earlierRules) {
-        // `[]` compiles against the non-empty tuple type because the first member takes the string filler value
-        if (rules.expressions().isEmpty()) {
-            report(context, rules, DiagnosticCode.EMPTY_RULE_LIST);
-            return;
-        }
-        for (Node element : rules.expressions()) {
-            Optional<String> ruleId = stringValue(semanticModel, element);
-            if (ruleId.isEmpty()) {
-                report(context, element, DiagnosticCode.UNVERIFIABLE_RULE, element.toSourceCode().trim());
-                continue;
-            }
-            validateRule(context, element, ruleId.get(), seen, earlierRules);
-        }
-    }
-
-    // A reference to a constant list is checked as a whole; every diagnostic points at the reference.
-    private static void validateConstantRules(CompilationAnalysisContext context, SemanticModel semanticModel,
-                                              Node rules, Set<String> seen, Set<String> earlierRules) {
-        Optional<List<String>> ruleIds = constantStrings(semanticModel, rules);
         if (ruleIds.isEmpty()) {
-            report(context, rules, DiagnosticCode.UNVERIFIABLE_RULE, rules.toSourceCode().trim());
-            return;
-        }
-        if (ruleIds.get().isEmpty()) {
             report(context, rules, DiagnosticCode.EMPTY_RULE_LIST);
             return;
         }
-        ruleIds.get().forEach(id -> validateRule(context, rules, id, seen, earlierRules));
-    }
-
-    private static void validateRule(CompilationAnalysisContext context, Node node, String id, Set<String> seen,
-                                     Set<String> earlierRules) {
-        if (!seen.add(id)) {
-            report(context, node, DiagnosticCode.DUPLICATE_RULE, id);
-        } else if (!RULE_ID.matcher(id).matches()) {
-            report(context, node, DiagnosticCode.INVALID_RULE_FORMAT, id);
-        } else if (earlierRules.contains(id)) {
-            report(context, node, DiagnosticCode.RULE_ALREADY_SUPPRESSED, id);
-        }
-    }
-
-    // `rules`, `'rules` and `"rules"` all name the same field
-    static String fieldName(SpecificFieldNode field) {
-        Node name = field.fieldName();
-        if (name.kind() == SyntaxKind.STRING_LITERAL) {
-            return literalText((BasicLiteralNode) name);
-        }
-        String text = name.toSourceCode().trim();
-        return text.startsWith("'") ? text.substring(1) : text;
-    }
-
-    // The value of a string literal, with its character and numeric escapes decoded
-    private static String literalText(BasicLiteralNode literal) {
-        String text = literal.literalToken().text();
-        text = text.substring(1, text.length() - 1);
-        StringBuilder value = new StringBuilder(text.length());
-        for (int i = 0; i < text.length(); i++) {
-            char c = text.charAt(i);
-            if (c != '\\' || i + 1 == text.length()) {
-                value.append(c);
-                continue;
-            }
-            char escape = text.charAt(++i);
-            switch (escape) {
-                case 't' -> value.append('\t');
-                case 'n' -> value.append('\n');
-                case 'r' -> value.append('\r');
-                case 'u' -> {
-                    int close = text.indexOf('}', i);
-                    if (i + 1 < text.length() && text.charAt(i + 1) == '{' && close > i + 2
-                            && appendCodePoint(value, text.substring(i + 2, close))) {
-                        i = close;
-                    } else {
-                        value.append('\\').append(escape);
-                    }
-                }
-                default -> value.append(escape);
+        // A list written in place gets each diagnostic on its member; a constant gets them on the reference
+        List<Node> members = rules instanceof ListConstructorExpressionNode list
+                && list.expressions().size() == ruleIds.size() ? list.expressions().stream().toList() : null;
+        Set<String> seen = new HashSet<>();
+        for (int i = 0; i < ruleIds.size(); i++) {
+            Node node = members == null ? rules : members.get(i);
+            String id = ruleIds.get(i);
+            if (!seen.add(id)) {
+                report(context, node, DiagnosticCode.DUPLICATE_RULE, id);
+            } else if (!RULE_ID.matcher(id).matches()) {
+                report(context, node, DiagnosticCode.INVALID_RULE_FORMAT, id);
+            } else if (earlierRules.contains(id)) {
+                report(context, node, DiagnosticCode.RULE_ALREADY_SUPPRESSED, id);
             }
         }
-        return value.toString();
-    }
-
-    // A malformed escape is a compile error already; it is kept as written
-    private static boolean appendCodePoint(StringBuilder value, String hex) {
-        try {
-            value.appendCodePoint(Integer.parseInt(hex, 16));
-            return true;
-        } catch (IllegalArgumentException e) {
-            return false;
-        }
-    }
-
-    private static Optional<String> stringValue(SemanticModel semanticModel, Node expression) {
-        if (expression.kind() == SyntaxKind.STRING_LITERAL) {
-            return Optional.of(literalText((BasicLiteralNode) expression));
-        }
-        return constantValue(semanticModel, expression).filter(String.class::isInstance).map(String.class::cast);
-    }
-
-    private static Optional<List<String>> constantStrings(SemanticModel semanticModel, Node expression) {
-        return constantValue(semanticModel, expression)
-                .filter(List.class::isInstance)
-                .map(list -> ((List<?>) list).stream().map(SuppressAnnotationValidator::memberValue).toList());
-    }
-
-    private static Optional<Object> constantValue(SemanticModel semanticModel, Node expression) {
-        return semanticModel.symbol(expression)
-                .filter(ConstantSymbol.class::isInstance)
-                .map(symbol -> ((ConstantSymbol) symbol).constValue())
-                .map(SuppressAnnotationValidator::unwrap);
-    }
-
-    private static Object unwrap(Object value) {
-        return value instanceof ConstantValue constant ? constant.value() : value;
-    }
-
-    // Members of a constant list are compiler-internal values whose string form is the member's value.
-    private static String memberValue(Object member) {
-        Object value = unwrap(member);
-        return value instanceof String text ? text : String.valueOf(value);
+        earlierRules.addAll(seen);
     }
 
     private static void report(CompilationAnalysisContext context, Node node, DiagnosticCode code, Object... args) {
         DiagnosticInfo info = new DiagnosticInfo(code.code(), code.messageFormat(), code.severity());
         context.reportDiagnostic(DiagnosticFactory.createDiagnostic(info, node.location(), args));
+    }
+
+    private static final class ConstructSuppressions {
+
+        private final Set<String> rules = new HashSet<>();
+        private boolean blanket;
     }
 }
