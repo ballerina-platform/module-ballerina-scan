@@ -45,6 +45,8 @@ public class CodeActionTest {
     private static final Gson GSON = new Gson();
     private static final String ADD_REASON = "Add suppression reason";
     private static final String REMOVE_BLANK_REASON = "Remove blank suppression reason";
+    private static final String REMOVE_DUPLICATE_RULE = "Remove duplicate rule";
+    private static final String DUPLICATE_RULE_REASON = ", reason: \"Fixed by the parser rewrite\"}";
 
     @DataProvider
     public Object[][] codeActions() {
@@ -54,7 +56,10 @@ public class CodeActionTest {
                 {24, ADD_REASON, "    @scan:Suppress {rules: [\"ballerina:1\"], reason: \"\"}"},
                 {26, REMOVE_BLANK_REASON, "    @scan:Suppress"},
                 {28, REMOVE_BLANK_REASON, "    @scan:Suppress {rules: [\"ballerina:1\"]}"},
-                {30, REMOVE_BLANK_REASON, "    @scan:Suppress {rules: [\"ballerina:1\"]}"}
+                {30, REMOVE_BLANK_REASON, "    @scan:Suppress {rules: [\"ballerina:1\"]}"},
+                {51, REMOVE_DUPLICATE_RULE,
+                        "    @scan:Suppress {rules: [\"ballerina:1\", \"ballerina:2\"]" + DUPLICATE_RULE_REASON},
+                {53, REMOVE_DUPLICATE_RULE, "    @scan:Suppress {rules: [\"ballerina:1\"]" + DUPLICATE_RULE_REASON}
         };
     }
 
@@ -78,6 +83,29 @@ public class CodeActionTest {
         List<String> trailing = List.of(applyCodeAction(48, REMOVE_BLANK_REASON).split("\\R"));
         Assert.assertEquals(trailing.subList(45, 49), List.of("    @scan:Suppress {",
                 "        rules: [\"ballerina:1\"]", "    }", "    int j = 10;"));
+    }
+
+    @Test(description = "test removing a duplicate rule keeps the lines and comments of the other rules")
+    public void testRemoveDuplicateRuleKeepsComments() {
+        List<String> ownLine = List.of(applyCodeAction(59, REMOVE_DUPLICATE_RULE).split("\\R"));
+        Assert.assertEquals(ownLine.subList(54, 60), List.of("    @scan:Suppress {", "        rules: [",
+                "            \"ballerina:1\",", "            \"ballerina:2\"", "        ],",
+                "        reason: \"Fixed by the parser rewrite\""));
+        List<String> last = List.of(applyCodeAction(68, REMOVE_DUPLICATE_RULE).split("\\R"));
+        Assert.assertEquals(last.subList(65, 68), List.of("        rules: [",
+                "            \"ballerina:1\" // Accepted until the parser is replaced", "        ],"));
+        List<String> closed = List.of(applyCodeAction(74, REMOVE_DUPLICATE_RULE).split("\\R"));
+        Assert.assertEquals(closed.subList(72, 74), List.of(
+                "    @scan:Suppress {rules: [\"ballerina:1\"]" + DUPLICATE_RULE_REASON, "    int o = 15;"));
+    }
+
+    @Test(description = "test a duplicate rule from a constant gets no code action")
+    public void testNoCodeActionForDuplicateInConstant() {
+        Package currentPackage = CompilerPluginTest.loadPackage("code_actions");
+        Assert.assertTrue(currentPackage.getCompilation().diagnosticResult().diagnostics().stream()
+                .anyMatch(diagnostic -> isOnLine(diagnostic, 75)
+                        && diagnostic.diagnosticInfo().code().equals("SCAN_SUPPRESS_105")));
+        Assert.assertEquals(codeActions(currentPackage, 76), List.of());
     }
 
     @Test(description = "test a suppression with a reason gets no code action")

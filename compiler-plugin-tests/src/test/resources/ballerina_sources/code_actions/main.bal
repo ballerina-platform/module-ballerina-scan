@@ -48,5 +48,34 @@ public function main() {
         reason: "" // Blank for now
     }
     int j = 10;
-    _ = a + b + c + d + e + f + g + h + i + j;
+    @scan:Suppress {rules: ["ballerina:1", "ballerina:1", "ballerina:2"], reason: "Fixed by the parser rewrite"}
+    int k = 11;
+    @scan:Suppress {rules: ["ballerina:1", "ballerina:1"], reason: "Fixed by the parser rewrite"}
+    int l = 12;
+    @scan:Suppress {
+        rules: [
+            "ballerina:1",
+            // Copied from the gateway
+            "ballerina:1", // Kept for the gateway
+            "ballerina:2"
+        ],
+        reason: "Fixed by the parser rewrite"
+    }
+    int m = 13;
+    @scan:Suppress {
+        rules: [
+            "ballerina:1", // Accepted until the parser is replaced
+            "ballerina:1"
+        ],
+        reason: "Fixed by the parser rewrite"
+    }
+    int n = 14;
+    @scan:Suppress {rules: ["ballerina:1",
+            "ballerina:1"], reason: "Fixed by the parser rewrite"}
+    int o = 15;
+    @scan:Suppress {rules: DUPLICATED_RULES, reason: "Fixed by the parser rewrite"}
+    int p = 16;
+    _ = a + b + c + d + e + f + g + h + i + j + k + l + m + n + o + p;
 }
+
+const string[] DUPLICATED_RULES = ["ballerina:1", "ballerina:1"];

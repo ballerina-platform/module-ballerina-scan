@@ -21,11 +21,8 @@ package io.ballerina.lib.scan.compiler;
 import io.ballerina.compiler.syntax.tree.AnnotationNode;
 import io.ballerina.compiler.syntax.tree.MappingConstructorExpressionNode;
 import io.ballerina.compiler.syntax.tree.MappingFieldNode;
-import io.ballerina.compiler.syntax.tree.Minutiae;
-import io.ballerina.compiler.syntax.tree.MinutiaeList;
 import io.ballerina.compiler.syntax.tree.SeparatedNodeList;
 import io.ballerina.compiler.syntax.tree.SpecificFieldNode;
-import io.ballerina.compiler.syntax.tree.SyntaxKind;
 import io.ballerina.compiler.syntax.tree.Token;
 import io.ballerina.projects.plugins.codeaction.CodeAction;
 import io.ballerina.projects.plugins.codeaction.CodeActionContext;
@@ -33,10 +30,15 @@ import io.ballerina.projects.plugins.codeaction.CodeActionExecutionContext;
 import io.ballerina.projects.plugins.codeaction.CodeActionInfo;
 import io.ballerina.projects.plugins.codeaction.DocumentEdit;
 import io.ballerina.tools.text.TextEdit;
-import io.ballerina.tools.text.TextRange;
 
 import java.util.List;
 import java.util.Optional;
+
+import static io.ballerina.lib.scan.compiler.SuppressCodeActions.hasComment;
+import static io.ballerina.lib.scan.compiler.SuppressCodeActions.hasLineBreak;
+import static io.ballerina.lib.scan.compiler.SuppressCodeActions.indentation;
+import static io.ballerina.lib.scan.compiler.SuppressCodeActions.lineBreak;
+import static io.ballerina.lib.scan.compiler.SuppressCodeActions.replace;
 
 /**
  * Removes a blank {@code reason} from a {@code @scan:Suppress} annotation, along with its separator, or the whole
@@ -96,42 +98,14 @@ class RemoveBlankReasonCodeAction implements CodeAction {
         // The reason's comments go with it, while a comment on the separator belongs to the field before it
         Token separator = fields.getSeparator(index - 1);
         String separatorTrivia = separator.trailingMinutiae().toString();
-        String fieldTrivia = field.trailingMinutiae().toString();
-        String lineBreak = separatorTrivia.contains("\r\n") || fieldTrivia.contains("\r\n") ? "\r\n" : "\n";
         String kept = hasComment(separator.trailingMinutiae()) ? separatorTrivia
-                : hasLineBreak(separator.trailingMinutiae()) || hasLineBreak(field.trailingMinutiae()) ? lineBreak : "";
+                : hasLineBreak(separator.trailingMinutiae()) || hasLineBreak(field.trailingMinutiae())
+                ? lineBreak(separatorTrivia + field.trailingMinutiae()) : "";
         // What followed the reason on its line, such as the closing brace, keeps the reason's indentation
         if (kept.endsWith("\n") && !hasLineBreak(field.trailingMinutiae())) {
             kept += indentation(field.leadingMinutiae().toString());
         }
         return replace(fields.get(index - 1).textRange().endOffset(), field.textRangeWithMinutiae().endOffset(), kept);
-    }
-
-    private static String indentation(String leadingTrivia) {
-        String lastLine = leadingTrivia.substring(leadingTrivia.lastIndexOf('\n') + 1);
-        return lastLine.isBlank() ? lastLine : "";
-    }
-
-    private static boolean hasLineBreak(MinutiaeList minutiae) {
-        for (Minutiae minutia : minutiae) {
-            if (minutia.kind() == SyntaxKind.END_OF_LINE_MINUTIAE) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private static boolean hasComment(MinutiaeList minutiae) {
-        for (Minutiae minutia : minutiae) {
-            if (minutia.kind() == SyntaxKind.COMMENT_MINUTIAE) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private static TextEdit replace(int start, int end, String text) {
-        return TextEdit.from(TextRange.from(start, end - start), text);
     }
 
     @Override
