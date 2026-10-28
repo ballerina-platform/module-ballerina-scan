@@ -59,14 +59,18 @@ final class SuppressCodeActions {
     private SuppressCodeActions() {
     }
 
-    static Optional<CodeActionInfo> codeActionInfo(CodeActionContext context, String title) {
-        return codeActionInfo(context, title, SuppressCodeActions::enclosingAnnotation);
+    static Optional<CodeActionInfo> codeActionInfo(CodeActionContext context, String title,
+                                                   Function<AnnotationNode, Optional<TextEdit>> edit) {
+        return codeActionInfo(context, title, SuppressCodeActions::enclosingAnnotation, edit);
     }
 
-    static Optional<CodeActionInfo> codeActionInfo(CodeActionContext context, String title,
-                                                   Function<NonTerminalNode, Optional<? extends Node>> target) {
+    // Offered only when the edit can be made, so that applying the action always changes the source
+    static <T extends Node> Optional<CodeActionInfo> codeActionInfo(CodeActionContext context, String title,
+                                                                    Function<NonTerminalNode, Optional<T>> target,
+                                                                    Function<T, Optional<TextEdit>> edit) {
         SyntaxTree syntaxTree = context.currentDocument().syntaxTree();
         return target.apply(findNode(syntaxTree, context.diagnostic().location().lineRange()))
+                .filter(node -> edit.apply(node).isPresent())
                 .map(node -> CodeActionInfo.from(title,
                         List.of(CodeActionArgument.from(NODE_RANGE, node.lineRange()))));
     }
@@ -95,7 +99,6 @@ final class SuppressCodeActions {
                 .orElse(List.of());
     }
 
-    // Removes a field with its separator, or the whole annotation value when the field is its only one
     static Optional<TextEdit> removeField(AnnotationNode annotation, String name) {
         if (annotation.annotValue().isEmpty()) {
             return Optional.empty();
@@ -105,40 +108,59 @@ final class SuppressCodeActions {
         for (int i = 0; i < fields.size(); i++) {
             if (fields.get(i) instanceof SpecificFieldNode field
                     && SuppressAttachment.fieldName(field).equals(name)) {
-                return Optional.of(removal(annotation, value, i));
+                // The value goes with its only field, since an empty `{}` adds nothing
+                return Optional.of(fields.size() == 1
+                        ? replace(annotation.annotReference().textRange().endOffset(), value.textRange().endOffset(),
+                                "")
+                        : removeElement(fields, i, value.openBrace()));
             }
         }
         return Optional.empty();
     }
 
-    private static TextEdit removal(AnnotationNode annotation, MappingConstructorExpressionNode value, int index) {
-        SeparatedNodeList<MappingFieldNode> fields = value.fields();
-        if (fields.size() == 1) {
-            return replace(annotation.annotReference().textRange().endOffset(), value.textRange().endOffset(), "");
-        }
-        MappingFieldNode field = fields.get(index);
+    /**
+     * Removes a member of a mapping or list constructor together with a separator, keeping the layout of the members
+     * around it and the comments that belong to them.
+     */
+    static TextEdit removeElement(SeparatedNodeList<? extends Node> elements, int index, Token open) {
+        Node element = elements.get(index);
         if (index == 0) {
-            Token separator = fields.getSeparator(0);
-            MappingFieldNode next = fields.get(1);
-            int end = separator.textRangeWithMinutiae().endOffset();
-            // A field on the brace's line pulls the next field up to it, unless comments keep that field apart
-            if (!hasLineBreak(value.openBrace().trailingMinutiae()) && hasLineBreak(separator.trailingMinutiae())
-                    && !hasComment(next.leadingMinutiae())) {
-                end = next.textRange().startOffset();
+            Token separator = elements.getSeparator(0);
+            int start = element.textRangeWithMinutiae().startOffset();
+            // An element on the opening token's line pulls the next one up to it, unless comments keep that one apart
+            if (!hasLineBreak(open.trailingMinutiae()) && hasLineBreak(separator.trailingMinutiae())) {
+                return hasComment(elements.get(1).leadingMinutiae())
+                        ? replace(start, separator.textRangeWithMinutiae().endOffset(),
+                                lineBreak(separator.trailingMinutiae().toString()))
+                        : replace(start, elements.get(1).textRange().startOffset(), "");
             }
-            return replace(field.textRangeWithMinutiae().startOffset(), end, "");
+            return replace(start, separator.textRangeWithMinutiae().endOffset(), "");
         }
-        // The field's comments go with it, while a comment on the separator belongs to the field before it
-        Token separator = fields.getSeparator(index - 1);
+        Node previous = elements.get(index - 1);
+        Token separator = elements.getSeparator(index - 1);
+        if (index < elements.size() - 1) {
+            Token next = elements.getSeparator(index);
+            // An element on a line of its own goes with that line, including the comments on it
+            if (hasLineBreak(separator.trailingMinutiae()) && hasLineBreak(next.trailingMinutiae())) {
+                return replace(element.textRangeWithMinutiae().startOffset(), next.textRangeWithMinutiae().endOffset(),
+                        "");
+            }
+            // An element ending its line goes with the separator before it, so the line keeps its break
+            if (hasLineBreak(next.trailingMinutiae())) {
+                return replace(previous.textRange().endOffset(), element.textRange().endOffset(), "");
+            }
+            // Otherwise it goes with the separator after it, so a comment on the separator before it stays
+            return replace(element.textRange().startOffset(), next.textRangeWithMinutiae().endOffset(), "");
+        }
+        // The last element's comments go with it, while a comment on the separator belongs to the element before it
         String separatorTrivia = separator.trailingMinutiae().toString();
         String kept = hasComment(separator.trailingMinutiae()) ? separatorTrivia
-                : hasLineBreak(separator.trailingMinutiae()) || hasLineBreak(field.trailingMinutiae())
-                ? lineBreak(separatorTrivia + field.trailingMinutiae()) : "";
-        // What followed the field on its line, such as the closing brace, keeps the field's indentation
-        if (kept.endsWith("\n") && !hasLineBreak(field.trailingMinutiae())) {
-            kept += indentation(field.leadingMinutiae().toString());
+                : hasLineBreak(element.trailingMinutiae()) ? lineBreak(element.trailingMinutiae().toString()) : "";
+        // What followed the element on its line, such as the closing token, keeps the element's indentation
+        if (kept.endsWith("\n") && !hasLineBreak(element.trailingMinutiae())) {
+            kept += indentation(element.leadingMinutiae().toString());
         }
-        return replace(fields.get(index - 1).textRange().endOffset(), field.textRangeWithMinutiae().endOffset(), kept);
+        return replace(previous.textRange().endOffset(), element.textRangeWithMinutiae().endOffset(), kept);
     }
 
     static String indentation(String leadingTrivia) {

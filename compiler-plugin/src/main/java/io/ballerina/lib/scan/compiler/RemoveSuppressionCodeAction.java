@@ -23,13 +23,14 @@ import io.ballerina.projects.plugins.codeaction.CodeActionContext;
 import io.ballerina.projects.plugins.codeaction.CodeActionExecutionContext;
 import io.ballerina.projects.plugins.codeaction.CodeActionInfo;
 import io.ballerina.projects.plugins.codeaction.DocumentEdit;
+import io.ballerina.tools.text.LineRange;
+import io.ballerina.tools.text.TextDocument;
 import io.ballerina.tools.text.TextEdit;
+import io.ballerina.tools.text.TextLine;
 
 import java.util.List;
 import java.util.Optional;
 
-import static io.ballerina.lib.scan.compiler.SuppressCodeActions.hasLineBreak;
-import static io.ballerina.lib.scan.compiler.SuppressCodeActions.indentation;
 import static io.ballerina.lib.scan.compiler.SuppressCodeActions.replace;
 
 /**
@@ -47,12 +48,14 @@ class RemoveSuppressionCodeAction implements CodeAction {
 
     @Override
     public Optional<CodeActionInfo> codeActionInfo(CodeActionContext context) {
-        return SuppressCodeActions.codeActionInfo(context, "Remove suppression")
-                .filter(info -> SuppressCodeActions.annotationAt(context)
-                        .flatMap(annotation -> SuppressAttachment.resolve(context.currentSemanticModel(), annotation))
-                        .flatMap(SuppressAttachment::reason)
-                        .filter(reason -> !reason.isBlank())
-                        .isEmpty());
+        boolean hasReason = SuppressCodeActions.annotationAt(context)
+                .flatMap(annotation -> SuppressAttachment.resolve(context.currentSemanticModel(), annotation))
+                .flatMap(SuppressAttachment::reason)
+                .filter(reason -> !reason.isBlank())
+                .isPresent();
+        return hasReason ? Optional.empty()
+                : SuppressCodeActions.codeActionInfo(context, "Remove suppression",
+                        RemoveSuppressionCodeAction::removeAnnotation);
     }
 
     @Override
@@ -60,13 +63,23 @@ class RemoveSuppressionCodeAction implements CodeAction {
         return SuppressCodeActions.execute(context, RemoveSuppressionCodeAction::removeAnnotation);
     }
 
+    // Comments on and above the annotation's lines are kept, since they may be about the construct
     private static Optional<TextEdit> removeAnnotation(AnnotationNode annotation) {
+        TextDocument document = annotation.syntaxTree().textDocument();
+        LineRange range = annotation.lineRange();
+        TextLine firstLine = document.line(range.startLine().line());
+        TextLine lastLine = document.line(range.endLine().line());
+        String before = firstLine.text().substring(0, range.startLine().offset());
+        String after = lastLine.text().substring(range.endLine().offset());
         int start = annotation.textRange().startOffset();
-        // An annotation on a line of its own goes with that line; comments above it stay
-        if (hasLineBreak(annotation.trailingMinutiae())) {
-            start -= indentation(annotation.leadingMinutiae().toString()).length();
+        int end = annotation.textRange().endOffset();
+        if (!before.isBlank()) {
+            return Optional.of(replace(start - (before.length() - before.stripTrailing().length()), end, ""));
         }
-        return Optional.of(replace(start, annotation.textRangeWithMinutiae().endOffset(), ""));
+        if (after.isBlank()) {
+            return Optional.of(replace(firstLine.startOffset(), lastLine.endOffsetWithNewLines(), ""));
+        }
+        return Optional.of(replace(start, end + after.length() - after.stripLeading().length(), ""));
     }
 
     @Override

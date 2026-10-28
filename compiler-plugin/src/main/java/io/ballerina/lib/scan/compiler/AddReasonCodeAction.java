@@ -28,10 +28,11 @@ import io.ballerina.projects.plugins.codeaction.CodeActionExecutionContext;
 import io.ballerina.projects.plugins.codeaction.CodeActionInfo;
 import io.ballerina.projects.plugins.codeaction.DocumentEdit;
 import io.ballerina.tools.text.TextEdit;
-import io.ballerina.tools.text.TextRange;
 
 import java.util.List;
 import java.util.Optional;
+
+import static io.ballerina.lib.scan.compiler.SuppressCodeActions.replace;
 
 /**
  * Adds an empty {@code reason} to a {@code @scan:Suppress} annotation that has none. The blank reason is reported until
@@ -50,7 +51,7 @@ class AddReasonCodeAction implements CodeAction {
 
     @Override
     public Optional<CodeActionInfo> codeActionInfo(CodeActionContext context) {
-        return SuppressCodeActions.codeActionInfo(context, "Add suppression reason");
+        return SuppressCodeActions.codeActionInfo(context, "Add suppression reason", AddReasonCodeAction::addReason);
     }
 
     @Override
@@ -60,18 +61,17 @@ class AddReasonCodeAction implements CodeAction {
 
     private static Optional<TextEdit> addReason(AnnotationNode annotation) {
         if (annotation.annotValue().isEmpty()) {
-            return Optional.of(insert(annotation.annotReference().textRange().endOffset(), " {" + REASON + "}"));
+            int end = annotation.annotReference().textRange().endOffset();
+            return Optional.of(replace(end, end, " {" + REASON + "}"));
         }
         MappingConstructorExpressionNode value = annotation.annotValue().get();
         SeparatedNodeList<MappingFieldNode> fields = value.fields();
         if (fields.isEmpty()) {
-            return Optional.of(insert(value.openBrace().textRange().endOffset(), REASON));
+            int end = value.openBrace().textRange().endOffset();
+            return Optional.of(replace(end, end, REASON));
         }
-        return Optional.of(insert(fields.get(fields.size() - 1).textRange().endOffset(), ", " + REASON));
-    }
-
-    private static TextEdit insert(int offset, String text) {
-        return TextEdit.from(TextRange.from(offset, 0), text);
+        int end = fields.get(fields.size() - 1).textRange().endOffset();
+        return Optional.of(replace(end, end, ", " + REASON));
     }
 
     @Override

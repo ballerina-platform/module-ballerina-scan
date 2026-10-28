@@ -87,7 +87,18 @@ public function main() {
     @scan:Suppress {rules: [], reason: "Fixed by the parser rewrite"}
     int t = 20;
     @scan:Suppress {rules: [], reason: ""} int u = 21;
-    _ = a + b + c + d + e + f + g + h + i + j + k + l + m + n + o + p + q + r + s + t + u;
+    @display {label: "v"} @scan:Suppress {rules: []}
+    int v = 22;
+    @scan:Suppress {rules: []} // TODO pick the rules
+    int w = 23;
+    @scan:Suppress {reason: "",
+        // SEC-1042
+        rules: ["ballerina:1"]
+    }
+    int x = 24;
+    @scan:Suppress {r\u{75}les: ["ballerina:1", "ballerina:1"], reason: "Fixed by the parser rewrite"}
+    int y = 25;
+    _ = a + b + c + d + e + f + g + h + i + j + k + l + m + n + o + p + q + r + s + t + u + v + w + x + y;
 }
 
 const string[] DUPLICATED_RULES = ["ballerina:1", "ballerina:1"];

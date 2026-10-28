@@ -67,7 +67,9 @@ public class CodeActionTest {
                 {85, REMOVE_SUPPRESSION, "    int s = 19;"},
                 {85, SUPPRESS_ALL_RULES, "    @scan:Suppress"},
                 {87, SUPPRESS_ALL_RULES, "    @scan:Suppress {reason: \"Fixed by the parser rewrite\"}"},
-                {89, REMOVE_SUPPRESSION, "    int u = 21;"}
+                {89, REMOVE_SUPPRESSION, "    int u = 21;"},
+                {99, REMOVE_DUPLICATE_RULE,
+                        "    @scan:Suppress {r\\u{75}les: [\"ballerina:1\"]" + DUPLICATE_RULE_REASON}
         };
     }
 
@@ -133,6 +135,21 @@ public class CodeActionTest {
         List<String> removed = List.of(applyCodeAction(85, REMOVE_SUPPRESSION).split("\\R"));
         Assert.assertEquals(removed.subList(83, 85), List.of("    // Placeholder until the rules are known",
                 "    int s = 19;"), "the comment above the annotation stays");
+    }
+
+    @Test(description = "test removing a suppression keeps what shares its lines")
+    public void testRemoveSuppressionKeepsItsLines() {
+        List<String> afterAnnotation = List.of(applyCodeAction(90, REMOVE_SUPPRESSION).split("\\R"));
+        Assert.assertEquals(afterAnnotation.subList(89, 91), List.of("    @display {label: \"v\"}", "    int v = 22;"));
+        List<String> withComment = List.of(applyCodeAction(92, REMOVE_SUPPRESSION).split("\\R"));
+        Assert.assertEquals(withComment.subList(91, 93), List.of("    // TODO pick the rules", "    int w = 23;"));
+    }
+
+    @Test(description = "test removing the first field keeps a comment above the next field on its own line")
+    public void testRemoveFirstFieldBeforeComment() {
+        List<String> lines = List.of(applyCodeAction(94, REMOVE_BLANK_REASON).split("\\R"));
+        Assert.assertEquals(lines.subList(93, 98), List.of("    @scan:Suppress {", "        // SEC-1042",
+                "        rules: [\"ballerina:1\"]", "    }", "    int x = 24;"));
     }
 
     @Test(description = "test a suppression with a reason gets no code action")

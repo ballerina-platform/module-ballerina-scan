@@ -18,11 +18,13 @@
 
 package io.ballerina.lib.scan.compiler;
 
+import io.ballerina.compiler.syntax.tree.AnnotationNode;
 import io.ballerina.projects.plugins.codeaction.CodeAction;
 import io.ballerina.projects.plugins.codeaction.CodeActionContext;
 import io.ballerina.projects.plugins.codeaction.CodeActionExecutionContext;
 import io.ballerina.projects.plugins.codeaction.CodeActionInfo;
 import io.ballerina.projects.plugins.codeaction.DocumentEdit;
+import io.ballerina.tools.text.TextEdit;
 
 import java.util.List;
 import java.util.Optional;
@@ -42,13 +44,17 @@ class RemoveBlankReasonCodeAction implements CodeAction {
 
     @Override
     public Optional<CodeActionInfo> codeActionInfo(CodeActionContext context) {
-        return SuppressCodeActions.codeActionInfo(context, "Remove blank suppression reason");
+        return SuppressCodeActions.codeActionInfo(context, "Remove blank suppression reason",
+                RemoveBlankReasonCodeAction::removeReason);
     }
 
     @Override
     public List<DocumentEdit> execute(CodeActionExecutionContext context) {
-        return SuppressCodeActions.execute(context,
-                annotation -> SuppressCodeActions.removeField(annotation, SuppressAttachment.REASON_FIELD));
+        return SuppressCodeActions.execute(context, RemoveBlankReasonCodeAction::removeReason);
+    }
+
+    private static Optional<TextEdit> removeReason(AnnotationNode annotation) {
+        return SuppressCodeActions.removeField(annotation, SuppressAttachment.REASON_FIELD);
     }
 
     @Override

@@ -17,11 +17,13 @@
  */
 package io.ballerina.lib.scan.compiler;
 
+import io.ballerina.compiler.syntax.tree.AnnotationNode;
 import io.ballerina.projects.plugins.codeaction.CodeAction;
 import io.ballerina.projects.plugins.codeaction.CodeActionContext;
 import io.ballerina.projects.plugins.codeaction.CodeActionExecutionContext;
 import io.ballerina.projects.plugins.codeaction.CodeActionInfo;
 import io.ballerina.projects.plugins.codeaction.DocumentEdit;
+import io.ballerina.tools.text.TextEdit;
 
 import java.util.List;
 import java.util.Optional;
@@ -41,13 +43,17 @@ class SuppressAllRulesCodeAction implements CodeAction {
 
     @Override
     public Optional<CodeActionInfo> codeActionInfo(CodeActionContext context) {
-        return SuppressCodeActions.codeActionInfo(context, "Suppress all rules on this construct");
+        return SuppressCodeActions.codeActionInfo(context, "Suppress all rules on this construct",
+                SuppressAllRulesCodeAction::removeRules);
     }
 
     @Override
     public List<DocumentEdit> execute(CodeActionExecutionContext context) {
-        return SuppressCodeActions.execute(context,
-                annotation -> SuppressCodeActions.removeField(annotation, SuppressAttachment.RULES_FIELD));
+        return SuppressCodeActions.execute(context, SuppressAllRulesCodeAction::removeRules);
+    }
+
+    private static Optional<TextEdit> removeRules(AnnotationNode annotation) {
+        return SuppressCodeActions.removeField(annotation, SuppressAttachment.RULES_FIELD);
     }
 
     @Override
