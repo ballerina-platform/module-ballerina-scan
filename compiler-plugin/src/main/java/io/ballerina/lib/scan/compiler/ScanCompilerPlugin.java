@@ -25,7 +25,7 @@ import io.ballerina.projects.plugins.CompilerPluginContext;
 
 /**
  * Compiler plugin of the {@code ballerina/scan} package, validating every {@code @scan:Suppress} annotation in the
- * importing package and offering code actions to add a missing reason, remove a blank one and remove a duplicate rule.
+ * importing package and offering code actions that fix its reason and rules.
  *
  * @since 1.0.0
  */
@@ -37,6 +37,8 @@ public class ScanCompilerPlugin extends CompilerPlugin {
         context.addCodeAction(new AddReasonCodeAction());
         context.addCodeAction(new RemoveBlankReasonCodeAction());
         context.addCodeAction(new RemoveDuplicateRuleCodeAction());
+        context.addCodeAction(new RemoveSuppressionCodeAction());
+        context.addCodeAction(new SuppressAllRulesCodeAction());
     }
 
     private static class SuppressCodeAnalyzer extends CodeAnalyzer {

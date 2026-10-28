@@ -36,6 +36,8 @@ import org.testng.annotations.Test;
 
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Tests the code actions of the {@code ballerina/scan} compiler plugin.
@@ -46,6 +48,8 @@ public class CodeActionTest {
     private static final String ADD_REASON = "Add suppression reason";
     private static final String REMOVE_BLANK_REASON = "Remove blank suppression reason";
     private static final String REMOVE_DUPLICATE_RULE = "Remove duplicate rule";
+    private static final String REMOVE_SUPPRESSION = "Remove suppression";
+    private static final String SUPPRESS_ALL_RULES = "Suppress all rules on this construct";
     private static final String DUPLICATE_RULE_REASON = ", reason: \"Fixed by the parser rewrite\"}";
 
     @DataProvider
@@ -59,7 +63,11 @@ public class CodeActionTest {
                 {30, REMOVE_BLANK_REASON, "    @scan:Suppress {rules: [\"ballerina:1\"]}"},
                 {51, REMOVE_DUPLICATE_RULE,
                         "    @scan:Suppress {rules: [\"ballerina:1\", \"ballerina:2\"]" + DUPLICATE_RULE_REASON},
-                {53, REMOVE_DUPLICATE_RULE, "    @scan:Suppress {rules: [\"ballerina:1\"]" + DUPLICATE_RULE_REASON}
+                {53, REMOVE_DUPLICATE_RULE, "    @scan:Suppress {rules: [\"ballerina:1\"]" + DUPLICATE_RULE_REASON},
+                {85, REMOVE_SUPPRESSION, "    int s = 19;"},
+                {85, SUPPRESS_ALL_RULES, "    @scan:Suppress"},
+                {87, SUPPRESS_ALL_RULES, "    @scan:Suppress {reason: \"Fixed by the parser rewrite\"}"},
+                {89, REMOVE_SUPPRESSION, "    int u = 21;"}
         };
     }
 
@@ -115,6 +123,18 @@ public class CodeActionTest {
         Assert.assertEquals(codeActions(currentPackage, 76), List.of());
     }
 
+    @Test(description = "test an empty rule list can be removed with its suppression only when it gives no reason")
+    public void testEmptyRuleListCodeActions() {
+        Package currentPackage = CompilerPluginTest.loadPackage("code_actions");
+        Assert.assertEquals(titles(currentPackage, 85), Set.of(ADD_REASON, REMOVE_SUPPRESSION, SUPPRESS_ALL_RULES));
+        Assert.assertEquals(titles(currentPackage, 87), Set.of(SUPPRESS_ALL_RULES));
+        Assert.assertEquals(titles(currentPackage, 89),
+                Set.of(REMOVE_BLANK_REASON, REMOVE_SUPPRESSION, SUPPRESS_ALL_RULES));
+        List<String> removed = List.of(applyCodeAction(85, REMOVE_SUPPRESSION).split("\\R"));
+        Assert.assertEquals(removed.subList(83, 85), List.of("    // Placeholder until the rules are known",
+                "    int s = 19;"), "the comment above the annotation stays");
+    }
+
     @Test(description = "test a suppression with a reason gets no code action")
     public void testNoCodeActionWithReason() {
         Assert.assertEquals(codeActions(CompilerPluginTest.loadPackage("valid_suppressions"), 31), List.of());
@@ -122,11 +142,12 @@ public class CodeActionTest {
 
     private static String applyCodeAction(int line, String title) {
         Package currentPackage = CompilerPluginTest.loadPackage("code_actions");
-        List<CodeActionInfo> codeActions = codeActions(currentPackage, line);
-        Assert.assertEquals(codeActions.stream().map(CodeActionInfo::getTitle).toList(), List.of(title));
+        CodeActionInfo codeAction = codeActions(currentPackage, line).stream()
+                .filter(info -> info.getTitle().equals(title))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("no '" + title + "' code action on line " + line));
 
         // Arguments reach execution through JSON, as they do from the language server
-        CodeActionInfo codeAction = codeActions.get(0);
         List<CodeActionArgument> arguments = codeAction.getArguments().stream()
                 .map(argument -> CodeActionArgument.from(GSON.toJsonTree(argument)))
                 .toList();
@@ -138,6 +159,10 @@ public class CodeActionTest {
                         compilation.getSemanticModel(document.documentId().moduleId()), arguments));
         Assert.assertEquals(edits.size(), 1);
         return edits.get(0).getModifiedSyntaxTree().toSourceCode();
+    }
+
+    private static Set<String> titles(Package currentPackage, int line) {
+        return codeActions(currentPackage, line).stream().map(CodeActionInfo::getTitle).collect(Collectors.toSet());
     }
 
     private static List<CodeActionInfo> codeActions(Package currentPackage, int line) {

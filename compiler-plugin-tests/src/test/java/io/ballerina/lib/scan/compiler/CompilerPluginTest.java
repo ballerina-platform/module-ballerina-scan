@@ -62,7 +62,8 @@ public class CompilerPluginTest {
                 "ERROR main.bal:24 " + INVALID_RULE_FORMAT.formatted("acme:lint:1"),
                 "WARNING main.bal:26 rule 'ballerina:1' is listed more than once",
                 "WARNING main.bal:28 blank suppression reason; it is treated as absent",
-                "ERROR main.bal:30 empty rule list; omit 'rules' to suppress every rule",
+                "ERROR main.bal:30 empty rule list; name the rules to suppress, or omit 'rules' to suppress "
+                        + "every rule",
                 "ERROR main.bal:32 " + INVALID_RULE_FORMAT.formatted("http:1"),
                 "ERROR main.bal:36 " + INVALID_RULE_FORMAT.formatted("http:1"),
                 "WARNING main.bal:41 rule 'ballerina:1' is already suppressed on this construct",

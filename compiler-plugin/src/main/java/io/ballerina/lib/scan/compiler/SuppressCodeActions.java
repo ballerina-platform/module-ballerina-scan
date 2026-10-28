@@ -19,13 +19,18 @@
 package io.ballerina.lib.scan.compiler;
 
 import io.ballerina.compiler.syntax.tree.AnnotationNode;
+import io.ballerina.compiler.syntax.tree.MappingConstructorExpressionNode;
+import io.ballerina.compiler.syntax.tree.MappingFieldNode;
 import io.ballerina.compiler.syntax.tree.Minutiae;
 import io.ballerina.compiler.syntax.tree.MinutiaeList;
 import io.ballerina.compiler.syntax.tree.ModulePartNode;
 import io.ballerina.compiler.syntax.tree.Node;
 import io.ballerina.compiler.syntax.tree.NonTerminalNode;
+import io.ballerina.compiler.syntax.tree.SeparatedNodeList;
+import io.ballerina.compiler.syntax.tree.SpecificFieldNode;
 import io.ballerina.compiler.syntax.tree.SyntaxKind;
 import io.ballerina.compiler.syntax.tree.SyntaxTree;
+import io.ballerina.compiler.syntax.tree.Token;
 import io.ballerina.projects.plugins.codeaction.CodeActionArgument;
 import io.ballerina.projects.plugins.codeaction.CodeActionContext;
 import io.ballerina.projects.plugins.codeaction.CodeActionExecutionContext;
@@ -66,6 +71,11 @@ final class SuppressCodeActions {
                         List.of(CodeActionArgument.from(NODE_RANGE, node.lineRange()))));
     }
 
+    static Optional<AnnotationNode> annotationAt(CodeActionContext context) {
+        return enclosingAnnotation(findNode(context.currentDocument().syntaxTree(),
+                context.diagnostic().location().lineRange()));
+    }
+
     static List<DocumentEdit> execute(CodeActionExecutionContext context,
                                       Function<AnnotationNode, Optional<TextEdit>> edit) {
         return execute(context, SuppressCodeActions::enclosingAnnotation, edit);
@@ -83,6 +93,52 @@ final class SuppressCodeActions {
                 .map(textEdit -> syntaxTree.textDocument().apply(TextDocumentChange.from(new TextEdit[]{textEdit})))
                 .map(document -> List.of(new DocumentEdit(context.fileUri(), SyntaxTree.from(document))))
                 .orElse(List.of());
+    }
+
+    // Removes a field with its separator, or the whole annotation value when the field is its only one
+    static Optional<TextEdit> removeField(AnnotationNode annotation, String name) {
+        if (annotation.annotValue().isEmpty()) {
+            return Optional.empty();
+        }
+        MappingConstructorExpressionNode value = annotation.annotValue().get();
+        SeparatedNodeList<MappingFieldNode> fields = value.fields();
+        for (int i = 0; i < fields.size(); i++) {
+            if (fields.get(i) instanceof SpecificFieldNode field
+                    && SuppressAttachment.fieldName(field).equals(name)) {
+                return Optional.of(removal(annotation, value, i));
+            }
+        }
+        return Optional.empty();
+    }
+
+    private static TextEdit removal(AnnotationNode annotation, MappingConstructorExpressionNode value, int index) {
+        SeparatedNodeList<MappingFieldNode> fields = value.fields();
+        if (fields.size() == 1) {
+            return replace(annotation.annotReference().textRange().endOffset(), value.textRange().endOffset(), "");
+        }
+        MappingFieldNode field = fields.get(index);
+        if (index == 0) {
+            Token separator = fields.getSeparator(0);
+            MappingFieldNode next = fields.get(1);
+            int end = separator.textRangeWithMinutiae().endOffset();
+            // A field on the brace's line pulls the next field up to it, unless comments keep that field apart
+            if (!hasLineBreak(value.openBrace().trailingMinutiae()) && hasLineBreak(separator.trailingMinutiae())
+                    && !hasComment(next.leadingMinutiae())) {
+                end = next.textRange().startOffset();
+            }
+            return replace(field.textRangeWithMinutiae().startOffset(), end, "");
+        }
+        // The field's comments go with it, while a comment on the separator belongs to the field before it
+        Token separator = fields.getSeparator(index - 1);
+        String separatorTrivia = separator.trailingMinutiae().toString();
+        String kept = hasComment(separator.trailingMinutiae()) ? separatorTrivia
+                : hasLineBreak(separator.trailingMinutiae()) || hasLineBreak(field.trailingMinutiae())
+                ? lineBreak(separatorTrivia + field.trailingMinutiae()) : "";
+        // What followed the field on its line, such as the closing brace, keeps the field's indentation
+        if (kept.endsWith("\n") && !hasLineBreak(field.trailingMinutiae())) {
+            kept += indentation(field.leadingMinutiae().toString());
+        }
+        return replace(fields.get(index - 1).textRange().endOffset(), field.textRangeWithMinutiae().endOffset(), kept);
     }
 
     static String indentation(String leadingTrivia) {

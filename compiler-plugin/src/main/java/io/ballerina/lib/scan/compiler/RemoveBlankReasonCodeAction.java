@@ -18,27 +18,14 @@
 
 package io.ballerina.lib.scan.compiler;
 
-import io.ballerina.compiler.syntax.tree.AnnotationNode;
-import io.ballerina.compiler.syntax.tree.MappingConstructorExpressionNode;
-import io.ballerina.compiler.syntax.tree.MappingFieldNode;
-import io.ballerina.compiler.syntax.tree.SeparatedNodeList;
-import io.ballerina.compiler.syntax.tree.SpecificFieldNode;
-import io.ballerina.compiler.syntax.tree.Token;
 import io.ballerina.projects.plugins.codeaction.CodeAction;
 import io.ballerina.projects.plugins.codeaction.CodeActionContext;
 import io.ballerina.projects.plugins.codeaction.CodeActionExecutionContext;
 import io.ballerina.projects.plugins.codeaction.CodeActionInfo;
 import io.ballerina.projects.plugins.codeaction.DocumentEdit;
-import io.ballerina.tools.text.TextEdit;
 
 import java.util.List;
 import java.util.Optional;
-
-import static io.ballerina.lib.scan.compiler.SuppressCodeActions.hasComment;
-import static io.ballerina.lib.scan.compiler.SuppressCodeActions.hasLineBreak;
-import static io.ballerina.lib.scan.compiler.SuppressCodeActions.indentation;
-import static io.ballerina.lib.scan.compiler.SuppressCodeActions.lineBreak;
-import static io.ballerina.lib.scan.compiler.SuppressCodeActions.replace;
 
 /**
  * Removes a blank {@code reason} from a {@code @scan:Suppress} annotation, along with its separator, or the whole
@@ -60,52 +47,8 @@ class RemoveBlankReasonCodeAction implements CodeAction {
 
     @Override
     public List<DocumentEdit> execute(CodeActionExecutionContext context) {
-        return SuppressCodeActions.execute(context, RemoveBlankReasonCodeAction::removeReason);
-    }
-
-    private static Optional<TextEdit> removeReason(AnnotationNode annotation) {
-        if (annotation.annotValue().isEmpty()) {
-            return Optional.empty();
-        }
-        MappingConstructorExpressionNode value = annotation.annotValue().get();
-        SeparatedNodeList<MappingFieldNode> fields = value.fields();
-        for (int i = 0; i < fields.size(); i++) {
-            if (fields.get(i) instanceof SpecificFieldNode field
-                    && SuppressAttachment.fieldName(field).equals(SuppressAttachment.REASON_FIELD)) {
-                return Optional.of(removal(annotation, value, i));
-            }
-        }
-        return Optional.empty();
-    }
-
-    private static TextEdit removal(AnnotationNode annotation, MappingConstructorExpressionNode value, int index) {
-        SeparatedNodeList<MappingFieldNode> fields = value.fields();
-        if (fields.size() == 1) {
-            return replace(annotation.annotReference().textRange().endOffset(), value.textRange().endOffset(), "");
-        }
-        MappingFieldNode field = fields.get(index);
-        if (index == 0) {
-            Token separator = fields.getSeparator(0);
-            MappingFieldNode next = fields.get(1);
-            int end = separator.textRangeWithMinutiae().endOffset();
-            // A reason on the brace's line pulls the next field up to it, unless comments keep that field apart
-            if (!hasLineBreak(value.openBrace().trailingMinutiae()) && hasLineBreak(separator.trailingMinutiae())
-                    && !hasComment(next.leadingMinutiae())) {
-                end = next.textRange().startOffset();
-            }
-            return replace(field.textRangeWithMinutiae().startOffset(), end, "");
-        }
-        // The reason's comments go with it, while a comment on the separator belongs to the field before it
-        Token separator = fields.getSeparator(index - 1);
-        String separatorTrivia = separator.trailingMinutiae().toString();
-        String kept = hasComment(separator.trailingMinutiae()) ? separatorTrivia
-                : hasLineBreak(separator.trailingMinutiae()) || hasLineBreak(field.trailingMinutiae())
-                ? lineBreak(separatorTrivia + field.trailingMinutiae()) : "";
-        // What followed the reason on its line, such as the closing brace, keeps the reason's indentation
-        if (kept.endsWith("\n") && !hasLineBreak(field.trailingMinutiae())) {
-            kept += indentation(field.leadingMinutiae().toString());
-        }
-        return replace(fields.get(index - 1).textRange().endOffset(), field.textRangeWithMinutiae().endOffset(), kept);
+        return SuppressCodeActions.execute(context,
+                annotation -> SuppressCodeActions.removeField(annotation, SuppressAttachment.REASON_FIELD));
     }
 
     @Override
