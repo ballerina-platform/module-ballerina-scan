@@ -10,17 +10,15 @@
 The `ballerina/scan` package provides language support for the [`bal scan`](https://github.com/ballerina-platform/static-code-analysis-tool) static code analysis tool. It provides the `@scan:Suppress` annotation, which accepts individual `bal scan` findings at the construct that contains them, and a compiler plugin that checks each suppression while the code is built or edited.
 
 ```ballerina
-import ballerina/crypto;
 import ballerina/scan;
 
-function hashPassword(string password) returns string|error {
-    @scan:Suppress {rules: ["ballerina/crypto:2"], reason: "Legacy hash kept for the migration window, SEC-1042"}
-    string hashed = check crypto:hashBcrypt(password, 4);
-    return hashed;
+public function main() {
+    @scan:Suppress {rules: ["ballerina:1"], reason: "The literal always parses"}
+    int port = checkpanic int:fromString("9090");
 }
 ```
 
-See the [package documentation](ballerina/README.md) for the annotation's fields, placement and validation.
+See the [package documentation](ballerina/README.md) for more examples, where the annotation can be placed, how it is validated, the editor's code actions and the project policy in `Scan.toml`.
 
 ## Compatibility
 
