@@ -68,3 +68,28 @@ annotation Limit Limited on function;
 }
 function limited() {
 }
+
+type Opts record {|
+    int a = 1;
+|};
+
+type Pair [@scan:Suppress {rules: ["http:2"], reason: "Tuple member"} int, string];
+
+type Parser function () returns @scan:Suppress {rules: ["http:3"], reason: "Function type"} int;
+
+function included(@scan:Suppress {rules: ["http:4"], reason: "Included record parameter"} *Opts opts) {
+}
+
+@scan:Suppress {rules: ["http:5"], reason: "Destructured module variable"}
+var {count} = {count: 1};
+
+function lambdas() {
+    var parse = function () returns @scan:Suppress {rules: ["http:6"], reason: "Anonymous function"} int {
+        return 1;
+    };
+    @scan:Suppress {rules: ["http:7"], reason: "Destructured variable"}
+    [int, int] [x, y] = [1, 2];
+    @scan:Suppress {r\u{75}les: ["ballerina:1", "ballerina:1"], reason: "Escaped field name"}
+    int z = 3;
+    _ = parse() + x + y + z + count;
+}

@@ -43,6 +43,8 @@ public class CompilerPluginTest {
     private static final Path DISTRIBUTION_PATH = Path.of("..", "target", "ballerina-runtime").toAbsolutePath();
     private static final String INVALID_RULE_FORMAT = "invalid rule ID '%s': expected 'ballerina:<number>' or "
             + "'<org>/<package>:<number>'";
+    private static final String UNSUPPORTED_PLACEMENT =
+            "@scan:Suppress is not supported on this construct and is ignored by bal scan";
 
     @Test(description = "test well-formed suppressions and annotations of other modules are not reported")
     public void testValidSuppressions() {
@@ -56,6 +58,7 @@ public class CompilerPluginTest {
     @Test(description = "test malformed suppressions are reported in source and test files")
     public void testInvalidSuppressions() {
         Assert.assertEquals(scanDiagnostics("invalid_suppressions"), List.of(
+                "ERROR aliased.bal:19 " + INVALID_RULE_FORMAT.formatted("http:8"),
                 "ERROR main.bal:22 " + INVALID_RULE_FORMAT.formatted("http:1"),
                 "ERROR main.bal:24 " + INVALID_RULE_FORMAT.formatted("ballerina:0"),
                 "ERROR main.bal:24 " + INVALID_RULE_FORMAT.formatted("ballerina"),
@@ -71,6 +74,13 @@ public class CompilerPluginTest {
                 "WARNING main.bal:46 every rule is already suppressed on this construct",
                 "ERROR main.bal:52 " + INVALID_RULE_FORMAT.formatted("http:1"),
                 "ERROR main.bal:65 " + INVALID_RULE_FORMAT.formatted("http:1"),
+                "ERROR main.bal:76 " + INVALID_RULE_FORMAT.formatted("http:2"),
+                "WARNING main.bal:78 " + UNSUPPORTED_PLACEMENT,
+                "ERROR main.bal:80 " + INVALID_RULE_FORMAT.formatted("http:4"),
+                "WARNING main.bal:83 " + UNSUPPORTED_PLACEMENT,
+                "ERROR main.bal:87 " + INVALID_RULE_FORMAT.formatted("http:6"),
+                "WARNING main.bal:90 " + UNSUPPORTED_PLACEMENT,
+                "WARNING main.bal:92 rule 'ballerina:1' is listed more than once",
                 "ERROR tests/main_test.bal:19 " + INVALID_RULE_FORMAT.formatted("http:1")));
     }
 

@@ -107,9 +107,10 @@ function parse(@scan:Suppress {rules: ["ballerina:1"], reason: "Trusted input"} 
 function nativeHash(string value) returns string = @scan:Suppress {rules: ["ballerina:1"], reason: "Native code"} external;
 ```
 
-It can also be attached to a constant, a class, an object field or method, and a service.
+It can also be attached to a constant, a class, an object field or method, a service, an included record parameter (`*Opts opts`), the return type of an anonymous function and a member of a tuple type definition.
 
 - A suppression on a service, class or object type does not reach the findings inside its members. Annotate the member instead.
+- A declaration that destructures its value, such as `[int, int] [x, y] = pair;`, and a function or tuple type written outside a type definition cannot carry a suppression. The annotation is reported as unsupported there, and `bal scan` ignores it.
 - A finding in a statement that is not a declaration can be suppressed by turning the statement into one:
 
   ```ballerina
@@ -129,6 +130,7 @@ Rule IDs and reasons are checked as the compiler evaluates them, so constants, s
 | Rule already suppressed by another annotation on the construct | Two annotations naming `ballerina:1` | `bal build`, `bal scan` | Warning |
 | Second annotation without `rules` on the construct | Two `@scan:Suppress {reason: "..."}` | `bal build`, `bal scan` | Warning |
 | Blank reason | `reason: ""` | `bal build` | Warning |
+| Unsupported placement | `@scan:Suppress` on `[int, int] [x, y] = pair;` | `bal build` | Warning |
 | Unknown rule | `rules: ["ballerina:999"]` | `bal scan` | Scan fails |
 | Rule of an analyzer the scan does not run | `rules: ["acme/lint:1"]` | `bal scan` | Warning |
 | Suppression that matched no finding | The finding was fixed | `bal scan` | Warning |

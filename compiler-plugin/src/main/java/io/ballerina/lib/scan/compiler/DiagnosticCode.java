@@ -38,6 +38,8 @@ enum DiagnosticCode {
             DiagnosticSeverity.WARNING),
     BLANKET_ALREADY_SUPPRESSED("SCAN_SUPPRESS_109", "every rule is already suppressed on this construct",
             DiagnosticSeverity.WARNING),
+    UNSUPPORTED_PLACEMENT("SCAN_SUPPRESS_110",
+            "@scan:Suppress is not supported on this construct and is ignored by bal scan", DiagnosticSeverity.WARNING),
     MISSING_REASON("SCAN_SUPPRESS_HINT_101", "a suppression reason can be added", DiagnosticSeverity.INTERNAL);
 
     private final String code;

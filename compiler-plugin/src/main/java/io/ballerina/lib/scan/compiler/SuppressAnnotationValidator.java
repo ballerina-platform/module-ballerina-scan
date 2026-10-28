@@ -37,6 +37,7 @@ import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -75,14 +76,24 @@ class SuppressAnnotationValidator implements AnalysisTask<CompilationAnalysisCon
         if (!(root instanceof ModulePartNode modulePart)) {
             return;
         }
+        Set<String> scanPrefixes = SuppressAttachment.scanPrefixes(modulePart);
+        if (scanPrefixes.isEmpty()) {
+            return;
+        }
         // The annotations of a construct share its metadata, or the parameter, return type or body they are on
         Map<Node, ConstructSuppressions> byConstruct = new IdentityHashMap<>();
         modulePart.accept(new NodeVisitor() {
             @Override
             public void visit(AnnotationNode annotation) {
-                SuppressAttachment.resolve(semanticModel, annotation).ifPresent(suppression ->
-                        validateAnnotation(context, annotation, suppression,
-                                byConstruct.computeIfAbsent(annotation.parent(), key -> new ConstructSuppressions())));
+                if (SuppressAttachment.refersToSuppress(annotation, scanPrefixes)) {
+                    Optional<SuppressAttachment> suppression = SuppressAttachment.resolve(semanticModel, annotation);
+                    if (suppression.isPresent()) {
+                        validateAnnotation(context, annotation, suppression.get(),
+                                byConstruct.computeIfAbsent(annotation.parent(), key -> new ConstructSuppressions()));
+                    } else {
+                        report(context, annotation, DiagnosticCode.UNSUPPORTED_PLACEMENT);
+                    }
+                }
                 // A construct inside another annotation's value can carry suppressions of its own
                 annotation.annotValue().ifPresent(value -> value.accept(this));
             }
