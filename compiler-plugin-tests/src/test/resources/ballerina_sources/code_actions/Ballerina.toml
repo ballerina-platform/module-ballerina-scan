@@ -1,0 +1,4 @@
+[package]
+org = "scan_test"
+name = "code_actions"
+version = "0.1.0"

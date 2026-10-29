@@ -1,0 +1,4 @@
+[package]
+org = "scan_test"
+name = "invalid_suppressions"
+version = "0.1.0"

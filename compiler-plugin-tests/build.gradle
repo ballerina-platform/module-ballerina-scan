@@ -1,0 +1,93 @@
+/*
+ * Copyright (c) 2026, WSO2 LLC. (https://www.wso2.com).
+ *
+ * WSO2 LLC. licenses this file to you under the Apache License,
+ * Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+plugins {
+    id 'java'
+    id 'checkstyle'
+    id 'com.github.spotbugs'
+    id 'jacoco'
+}
+
+jacoco {
+    toolVersion = "${jacocoVersion}"
+    reportsDirectory = layout.buildDirectory.dir("reports/jacoco")
+}
+
+description = 'Ballerina - Scan Compiler Plugin Tests'
+
+dependencies {
+    checkstyle project(':checkstyle')
+    checkstyle "com.puppycrawl.tools:checkstyle:${puppycrawlCheckstyleVersion}"
+
+    implementation project(':scan-compiler-plugin')
+
+    testImplementation group: 'org.ballerinalang', name: 'ballerina-lang', version: "${ballerinaLangVersion}"
+    testImplementation group: 'org.ballerinalang', name: 'ballerina-tools-api', version: "${ballerinaLangVersion}"
+    testImplementation group: 'org.ballerinalang', name: 'ballerina-parser', version: "${ballerinaLangVersion}"
+    testImplementation group: 'org.testng', name: 'testng', version: "${testngVersion}"
+    testImplementation group: 'com.google.code.gson', name: 'gson', version: "${gsonVersion}"
+}
+
+checkstyle {
+    toolVersion "${project.puppycrawlCheckstyleVersion}"
+    configFile rootProject.file("build-config/checkstyle/build/checkstyle.xml")
+    configProperties = ["suppressionFile" : file("${rootDir}/build-config/checkstyle/build/suppressions.xml")]
+}
+
+checkstyleTest.dependsOn(":checkstyle:downloadCheckstyleRuleFiles")
+
+spotbugsTest {
+    def classLoader = plugins["com.github.spotbugs"].class.classLoader
+    def SpotBugsConfidence = classLoader.findLoadedClass("com.github.spotbugs.snom.Confidence")
+    def SpotBugsEffort = classLoader.findLoadedClass("com.github.spotbugs.snom.Effort")
+    effort = SpotBugsEffort.MAX
+    reportLevel = SpotBugsConfidence.LOW
+    reportsDir = layout.buildDirectory.dir("reports/spotbugs")
+    reports {
+        html.enabled true
+        text.enabled = true
+    }
+    def excludeFile = file("${project.projectDir}/spotbugs-exclude.xml")
+    if(excludeFile.exists()) {
+        excludeFilter = excludeFile
+    }
+}
+
+spotbugsMain {
+    enabled false
+}
+
+checkstyleMain {
+    enabled false
+}
+
+test {
+    systemProperty "ballerina.offline.flag", "true"
+    useTestNG()
+    finalizedBy jacocoTestReport
+}
+
+jacocoTestReport {
+    dependsOn test
+    reports {
+        xml.required = true
+    }
+    sourceSets project(':scan-compiler-plugin').sourceSets.main
+}
+
+test.dependsOn ":scan-ballerina:build"
