@@ -69,16 +69,16 @@ Each core rule of `bal scan` (`ballerina:<number>`) has a constant in this packa
 |---|---|
 | `scan:CHECKPANIC_USAGE` | `ballerina:1` |
 | `scan:UNUSED_FUNCTION_PARAMETER` | `ballerina:2` |
-| `scan:PUBLIC_NON_ISOLATED_FUNCTION_CONSTRUCT` | `ballerina:3` |
-| `scan:PUBLIC_NON_ISOLATED_METHOD_CONSTRUCT` | `ballerina:4` |
-| `scan:PUBLIC_NON_ISOLATED_CLASS_CONSTRUCT` | `ballerina:5` |
-| `scan:PUBLIC_NON_ISOLATED_OBJECT_CONSTRUCT` | `ballerina:6` |
-| `scan:OPERATION_ALWAYS_EVALUATES_TO_TRUE` | `ballerina:7` |
-| `scan:OPERATION_ALWAYS_EVALUATES_TO_FALSE` | `ballerina:8` |
-| `scan:OPERATION_ALWAYS_EVALUATES_TO_SELF_VALUE` | `ballerina:9` |
+| `scan:NON_ISOLATED_PUBLIC_FUNCTION` | `ballerina:3` |
+| `scan:NON_ISOLATED_PUBLIC_METHOD` | `ballerina:4` |
+| `scan:NON_ISOLATED_PUBLIC_CLASS` | `ballerina:5` |
+| `scan:NON_ISOLATED_PUBLIC_OBJECT` | `ballerina:6` |
+| `scan:ALWAYS_TRUE_OPERATION` | `ballerina:7` |
+| `scan:ALWAYS_FALSE_OPERATION` | `ballerina:8` |
+| `scan:REDUNDANT_OPERATION` | `ballerina:9` |
 | `scan:SELF_ASSIGNMENT` | `ballerina:10` |
 | `scan:UNUSED_PRIVATE_CLASS_FIELD` | `ballerina:11` |
-| `scan:INVALID_RANGE_EXPRESSION` | `ballerina:12` |
+| `scan:EMPTY_RANGE_EXPRESSION` | `ballerina:12` |
 | `scan:HARD_CODED_SECRET` | `ballerina:13` |
 | `scan:NON_CONFIGURABLE_SECRET` | `ballerina:14` |
 
