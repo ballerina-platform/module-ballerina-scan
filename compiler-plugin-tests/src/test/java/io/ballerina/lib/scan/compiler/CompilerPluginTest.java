@@ -81,6 +81,7 @@ public class CompilerPluginTest {
                 "ERROR main.bal:87 " + INVALID_RULE_FORMAT.formatted("http:6"),
                 "WARNING main.bal:90 " + UNSUPPORTED_PLACEMENT,
                 "WARNING main.bal:92 rule 'ballerina:1' is listed more than once",
+                "WARNING main.bal:94 rule 'ballerina:1' is listed more than once",
                 "ERROR tests/main_test.bal:19 " + INVALID_RULE_FORMAT.formatted("http:1")));
     }
 

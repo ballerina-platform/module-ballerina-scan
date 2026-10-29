@@ -13,7 +13,7 @@ The `ballerina/scan` package provides language support for the [`bal scan`](http
 import ballerina/scan;
 
 public function main() {
-    @scan:Suppress {rules: ["ballerina:1"], reason: "The literal always parses"}
+    @scan:Suppress {rules: [scan:CHECKPANIC_USAGE], reason: "The literal always parses"}
     int port = checkpanic int:fromString("9090");
 }
 ```

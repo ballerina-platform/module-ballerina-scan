@@ -7,4 +7,5 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Added
 - Introduce the `@scan:Suppress` annotation to accept `bal scan` findings in source, with a compiler plugin that validates its rule IDs and reason
+- Add a constant for each `bal scan` core rule, such as `CHECKPANIC_USAGE` for `ballerina:1`, to name rules in `@scan:Suppress` by the finding they suppress
 - Add code actions to add a missing `@scan:Suppress` reason, remove a blank one, remove a rule listed twice in one annotation and resolve an empty rule list

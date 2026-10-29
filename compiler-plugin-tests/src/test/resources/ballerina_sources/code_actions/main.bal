@@ -98,7 +98,9 @@ public function main() {
     int x = 24;
     @scan:Suppress {r\u{75}les: ["ballerina:1", "ballerina:1"], reason: "Fixed by the parser rewrite"}
     int y = 25;
-    _ = a + b + c + d + e + f + g + h + i + j + k + l + m + n + o + p + q + r + s + t + u + v + w + x + y;
+    @scan:Suppress {rules: [scan:CHECKPANIC_USAGE, "ballerina:1"], reason: "Fixed by the parser rewrite"}
+    int z = 26;
+    _ = a + b + c + d + e + f + g + h + i + j + k + l + m + n + o + p + q + r + s + t + u + v + w + x + y + z;
 }
 
 const string[] DUPLICATED_RULES = ["ballerina:1", "ballerina:1"];

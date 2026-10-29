@@ -52,5 +52,15 @@ public function main() {
         reason: "Commented reason"
     }
     int j = 10;
-    _ = a + b + c + d + e + f + g + h + i + j;
+    @scan:Suppress {
+        rules: [scan:CHECKPANIC_USAGE, scan:UNUSED_FUNCTION_PARAMETER, scan:PUBLIC_NON_ISOLATED_FUNCTION_CONSTRUCT,
+            scan:PUBLIC_NON_ISOLATED_METHOD_CONSTRUCT, scan:PUBLIC_NON_ISOLATED_CLASS_CONSTRUCT,
+            scan:PUBLIC_NON_ISOLATED_OBJECT_CONSTRUCT, scan:OPERATION_ALWAYS_EVALUATES_TO_TRUE,
+            scan:OPERATION_ALWAYS_EVALUATES_TO_FALSE, scan:OPERATION_ALWAYS_EVALUATES_TO_SELF_VALUE,
+            scan:SELF_ASSIGNMENT, scan:UNUSED_PRIVATE_CLASS_FIELD, scan:INVALID_RANGE_EXPRESSION,
+            scan:HARD_CODED_SECRET, scan:NON_CONFIGURABLE_SECRET],
+        reason: "Rules through the constants of the package"
+    }
+    int k = 11;
+    _ = a + b + c + d + e + f + g + h + i + j + k;
 }

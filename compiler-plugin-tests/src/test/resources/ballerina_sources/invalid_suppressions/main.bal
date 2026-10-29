@@ -91,5 +91,7 @@ function lambdas() {
     [int, int] [x, y] = [1, 2];
     @scan:Suppress {r\u{75}les: ["ballerina:1", "ballerina:1"], reason: "Escaped field name"}
     int z = 3;
-    _ = parse() + x + y + z + count;
+    @scan:Suppress {rules: [scan:CHECKPANIC_USAGE, "ballerina:1"], reason: "Constant and its rule ID"}
+    int w = 4;
+    _ = parse() + x + y + z + w + count;
 }

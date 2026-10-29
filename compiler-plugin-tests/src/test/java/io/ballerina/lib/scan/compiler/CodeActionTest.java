@@ -69,7 +69,9 @@ public class CodeActionTest {
                 {87, SUPPRESS_ALL_RULES, "    @scan:Suppress {reason: \"Fixed by the parser rewrite\"}"},
                 {89, REMOVE_SUPPRESSION, "    int u = 21;"},
                 {99, REMOVE_DUPLICATE_RULE,
-                        "    @scan:Suppress {r\\u{75}les: [\"ballerina:1\"]" + DUPLICATE_RULE_REASON}
+                        "    @scan:Suppress {r\\u{75}les: [\"ballerina:1\"]" + DUPLICATE_RULE_REASON},
+                {101, REMOVE_DUPLICATE_RULE,
+                        "    @scan:Suppress {rules: [scan:CHECKPANIC_USAGE]" + DUPLICATE_RULE_REASON}
         };
     }
 
