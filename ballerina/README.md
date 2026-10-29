@@ -63,7 +63,7 @@ Both fields are optional, so `@scan:Suppress` and `@scan:Suppress {rules: [scan:
 
 ### Rules
 
-Each `bal scan` rule has a constant in this package, named after the finding it suppresses:
+Each core rule of `bal scan` (`ballerina:<number>`) has a constant in this package, named after the finding it suppresses:
 
 | Constant | Rule ID |
 |---|---|
@@ -82,7 +82,7 @@ Each `bal scan` rule has a constant in this package, named after the finding it 
 | `scan:HARD_CODED_SECRET` | `ballerina:13` |
 | `scan:NON_CONFIGURABLE_SECRET` | `ballerina:14` |
 
-A rule can also be named by its ID, which `bal scan` prints with each finding, and `bal scan --list-rules` lists the rules available to a package. Rules contributed by a package's analyzer are named by ID:
+Any rule can also be named by its ID, which `bal scan` prints with each finding, and `bal scan --list-rules` lists the rules available to a package. Rules contributed by a package's analyzer have no constant in this package and are named by ID:
 
 | Form | Example | Rule of |
 |---|---|---|
