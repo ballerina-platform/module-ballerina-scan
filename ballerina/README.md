@@ -1,6 +1,6 @@
 ## Overview
 
-This package provides the `@scan:Suppress` annotation, which accepts a finding of the [`bal scan`](https://github.com/ballerina-platform/static-code-analysis-tool) static code analysis tool at the construct that contains it, along with the reason it is accepted.
+This package provides the `@scan:Suppress` annotation, which accepts a finding of the [`bal scan`](https://ballerina.io/learn/scan-tool/) static code analysis tool at the construct that contains it, along with the reason it is accepted.
 
 ```ballerina
 import ballerina/scan;
